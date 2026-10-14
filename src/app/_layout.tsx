@@ -1,7 +1,5 @@
-
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -17,27 +15,8 @@ export default function RootLayout() {
       <CarrinhoProvider>
         <AnimatedSplashOverlay />
 
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false }}
-          />
-
-          <Stack.Screen
-            name="cardapio"
-            options={{ headerShown: false }}
-          />
-
-          <Stack.Screen
-            name="pizzas"
-            options={{ headerShown: false }}
-          />
-
-          <Stack.Screen
-            name="carrinho"
-            options={{ headerShown: false }}
-          />
-        </Stack>
+        {/* Todas as telas usam cabeçalho próprio (botão "Voltar" dentro da tela). */}
+        <Stack screenOptions={{ headerShown: false }} />
       </CarrinhoProvider>
     </ThemeProvider>
   );

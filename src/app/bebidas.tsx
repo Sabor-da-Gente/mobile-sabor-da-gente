@@ -1,4 +1,3 @@
-
 import { router } from 'expo-router';
 import {
   Alert,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCarrinho } from '@/context/CarrinhoContext';
+import { formatarPreco } from '@/utils/dinheiro';
 
 const bebidas = [
   {
@@ -32,9 +32,6 @@ const bebidas = [
   },
 ];
 
-function formatarPreco(valor: number) {
-  return `R$ ${valor.toFixed(2).replace('.', ',')}`;
-}
 
 export default function BebidasScreen() {
   const { adicionarItem, itens } = useCarrinho();

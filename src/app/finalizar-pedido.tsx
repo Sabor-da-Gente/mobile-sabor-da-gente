@@ -10,13 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCarrinho } from '@/context/CarrinhoContext';
+import { avisar, confirmar } from '@/utils/alerta';
+import { formatarPreco } from '@/utils/dinheiro';
 
 type TipoEntrega = 'entrega' | 'retirada';
 type FormaPagamento = 'Pix' | 'Dinheiro' | 'Cartão';
-
-function formatarPreco(valor: number) {
-  return `R$ ${valor.toFixed(2).replace('.', ',')}`;
-}
 
 export default function FinalizarPedidoScreen() {
   const { itens, total, limparCarrinho } = useCarrinho();
@@ -28,21 +26,19 @@ export default function FinalizarPedidoScreen() {
   const [pagamento, setPagamento] = useState<FormaPagamento>('Pix');
   const [troco, setTroco] = useState('');
 
-  function confirmarPedido() {
+  async function confirmarPedido() {
     if (itens.length === 0) {
-      window.alert(
-        'Carrinho vazio. Volte ao cardápio e adicione produtos.',
-      );
+      avisar('Carrinho vazio', 'Volte ao cardápio e adicione produtos.');
       return;
     }
 
     if (!nome.trim() || !telefone.trim()) {
-      window.alert('Informe seu nome e telefone para continuar.');
+      avisar('Dados incompletos', 'Informe seu nome e telefone para continuar.');
       return;
     }
 
     if (tipoEntrega === 'entrega' && !endereco.trim()) {
-      window.alert('Informe o endereço para entrega.');
+      avisar('Endereço obrigatório', 'Informe o endereço para entrega.');
       return;
     }
 
@@ -75,17 +71,20 @@ export default function FinalizarPedidoScreen() {
       `\nProdutos:\n${resumoItens}\n\n` +
       `Total: ${formatarPreco(total)}`;
 
-    const confirmou = window.confirm(
-      `Revise seu pedido:\n\n${resumo}\n\nDeseja confirmar o pedido?`,
+    const confirmou = await confirmar(
+      'Revise seu pedido',
+      `${resumo}\n\nDeseja confirmar o pedido?`,
+      'Confirmar pedido',
+      'Revisar',
     );
 
     if (!confirmou) {
       return;
     }
 
-    window.alert(
-      `Pedido #${numeroPedido} confirmado nesta demonstração!\n\n` +
-        'Nenhum pedido foi enviado à pizzaria e nenhum pagamento foi realizado.',
+    avisar(
+      `Pedido #${numeroPedido} confirmado!`,
+      'Demonstração: nenhum pedido foi enviado à pizzaria e nenhum pagamento foi realizado.',
     );
 
     limparCarrinho();
