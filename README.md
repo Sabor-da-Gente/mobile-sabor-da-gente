@@ -2,7 +2,7 @@
 
 Aplicativo mobile de uma pizzaria desenvolvido em **React Native + Expo + TypeScript** como projeto da disciplina de **Programação para Dispositivos Móveis (PDM)**.
 
-O objetivo do projeto é desenvolver uma aplicação completa para pedidos de uma pizzaria, permitindo que clientes consultem o cardápio, montem seus pedidos, realizem a compra e acompanhem o pedido.
+O objetivo do projeto é desenvolver uma aplicação completa para pedidos de uma pizzaria, permitindo que clientes consultem o cardápio, montem seus pedidos, realizem a compra e acompanhem o pedido. A parte administrativa é desenvolvida na disciplina de Desenvolvimento de Aplicações Web 3 (DAW3), e as duas partes serão conectadas.
 
 ---
 
@@ -17,22 +17,73 @@ Desenvolver um sistema de pizzaria com:
 - 👤 Cadastro e gerenciamento de clientes;
 - 💳 Formas de pagamento;
 - 📍 Endereços de entrega;
-- 👨‍💼 Área administrativa;
-- 🗄️ Banco de dados;
-- 🧱 Aplicação de Programação Orientada a Objetos (POO).
+- 👨‍💼 Área administrativa (projeto web de DAW3);
+- 🗄️ Persistência de dados.
 
 ---
 
 ## 🛠️ Tecnologias
 
 - React Native
-- Expo
-- Expo Router
+- Expo e Expo Router
 - TypeScript
-- Node.js
-- Git
-- GitHub
-- Banco de dados (a definir)
+- AsyncStorage (persistência local)
+- Git e GitHub
+
+### Persistência local
+
+O carrinho é salvo no dispositivo com o **AsyncStorage**, e continua lá depois de fechar e reabrir o app. Ele foi escolhido por ser simples, assíncrono, já integrado ao ecossistema Expo e suficiente para o volume de dados do carrinho. O acesso aos dados do cardápio passa por uma camada de serviço (`src/services`), preparada para receber a API do painel administrativo.
+
+---
+
+## ▶️ Como executar
+
+Pré-requisitos: Node.js instalado e o app **Expo Go** no celular Android (ou um emulador Android).
+
+```bash
+git clone https://github.com/Sabor-da-Gente/mobile-sabor-da-gente.git
+cd mobile-sabor-da-gente
+npm install
+npx expo start
+```
+
+Escaneie o QR code com o Expo Go, com o celular na mesma rede Wi-Fi do computador.
+
+---
+
+## 🗂️ Estrutura do projeto
+
+```text
+src/
+├── app/            rotas (Expo Router)
+│   ├── (tabs)/     tela inicial
+│   ├── categoria/  rota dinâmica /categoria/[id]
+│   ├── cardapio.tsx
+│   ├── carrinho.tsx
+│   └── finalizar-pedido.tsx
+├── components/     componentes reutilizáveis (tela-categoria)
+├── constants/      paleta de cores e tema
+├── context/        CarrinhoContext (estado global e persistência)
+├── data/           cardápio local
+├── hooks/          hooks de dados (use-produtos)
+├── services/       camada de acesso aos dados (cardapioService)
+├── types/          tipos compartilhados (Categoria, Produto)
+└── utils/          formatação de dinheiro e alertas
+```
+
+As telas não leem `src/data` diretamente: passam por `src/services`, que é o ponto onde a API será conectada.
+
+---
+
+## 🧩 Modelo de dados
+
+**Categoria:** id, título, emoji, descrição, subtítulo, máximo de sabores e nome do item.
+
+**Produto:** id, categoria, nome, descrição, emoji, preço em centavos e disponibilidade.
+
+**Item do carrinho:** id, nome, sabores, preço unitário em centavos e quantidade.
+
+Os preços são guardados em **centavos** (inteiros), por exemplo `4500` para R$ 45,00, o que evita erros de arredondamento.
 
 ---
 
@@ -42,35 +93,22 @@ Desenvolver um sistema de pizzaria com:
 
 - Identidade visual da pizzaria;
 - Acesso ao cardápio;
-- Categorias de produtos;
+- Categorias de produtos geradas a partir da lista do cardápio;
 - Seção de produtos mais pedidos.
 
-### 📋 Cardápio
+### 📋 Cardápio e categorias
 
-Categorias inicialmente planejadas:
+Categorias: 🍕 Pizzas, 🥟 Esfihas, 🥤 Bebidas e 🍫 Sobremesas, todas na mesma tela reutilizável (`/categoria/[id]`).
 
-- 🍕 Pizzas
-- 🥟 Esfihas
-- 🥤 Bebidas
-- 🍫 Sobremesas
+- Busca por nome ou descrição, sem diferenciar acentos;
+- Ordenação por menor preço;
+- Indicador de carregamento, mensagem de erro com nova tentativa e aviso quando nada é encontrado;
+- Confirmação ao adicionar um item, com atalho para o carrinho.
 
-### 🍕 Pizzas Grandes
+### 🍕 Pizzas
 
-Atualmente é possível:
-
-- Visualizar os sabores disponíveis;
-- Selecionar sabores;
-- Selecionar no mínimo 1 e no máximo 2 sabores;
-- Desmarcar sabores;
-- Identificar visualmente os sabores selecionados;
-- Visualizar o preço de cada sabor;
-- Calcular automaticamente o preço da pizza.
-
-#### Regra atual de preço
-
-Quando uma pizza possui dois sabores, o preço utilizado é o do sabor de maior valor.
-
-Exemplo:
+- Seleção de 1 a 2 sabores;
+- Preço calculado pelo sabor de maior valor.
 
 | Sabores | Preço |
 |---|---:|
@@ -81,74 +119,36 @@ Exemplo:
 | Calabresa + Portuguesa | R$ 48,00 |
 | Frango + Portuguesa | R$ 48,00 |
 
-Essa regra poderá ser alterada posteriormente conforme as necessidades do projeto.
-
----
-
-## 🚧 Funcionalidades em desenvolvimento
-
 ### 🛒 Carrinho
 
-- Adicionar produtos;
-- Alterar quantidade;
-- Remover produtos;
-- Visualizar subtotal;
-- Visualizar total;
-- Adicionar observações.
+- Adicionar, alterar quantidade e remover itens;
+- Total do pedido;
+- Limpar carrinho com confirmação;
+- Persistência local: os itens continuam após fechar e reabrir o app.
 
 ### 📦 Finalização do pedido
 
-- Identificação do cliente;
-- Endereço de entrega;
-- Forma de pagamento;
-- Confirmação do pedido;
-- Número do pedido;
-- Acompanhamento do status.
-
-### 👤 Usuário
-
-- Cadastro;
-- Login;
-- Perfil;
-- Endereços salvos;
-- Histórico de pedidos;
-- Detalhes dos pedidos.
-
-### 👨‍💼 Área administrativa
-
-- Login de administrador;
-- Visualização dos pedidos;
-- Alteração do status dos pedidos;
-- Cadastro de produtos;
-- Edição de produtos;
-- Remoção de produtos;
-- Gerenciamento de categorias;
-- Alteração de preços;
-- Estatísticas básicas.
+- Dados do cliente, tipo de recebimento (entrega ou retirada) e forma de pagamento;
+- Resumo do pedido e confirmação.
 
 ---
 
-## 🧱 Programação Orientada a Objetos
+## 🚧 Em desenvolvimento
 
-O projeto será estruturado utilizando conceitos de POO.
+- Salvar o pedido no dispositivo, com histórico, detalhe, edição e cancelamento;
+- Validação de formato do telefone e do valor do troco;
+- Integração com a API do painel administrativo;
+- Tema claro e escuro;
+- Cadastro, login e endereços salvos.
 
-Algumas das principais entidades planejadas são:
+---
 
-```text
-Usuario
-├── Cliente
-└── Administrador
+## 📸 Prints do app
 
-Produto
-├── Pizza
-├── Esfiha
-└── Bebida
+*(adicionar prints da tela inicial, de uma categoria, do carrinho e da finalização do pedido)*
 
-Sabor
-Categoria
+---
 
-Pedido
-└── ItemPedido
+## 📄 Licença
 
-Endereco
-Pagamento
+Este projeto está sob a licença MIT.
