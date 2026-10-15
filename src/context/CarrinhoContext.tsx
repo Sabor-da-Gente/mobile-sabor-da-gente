@@ -1,4 +1,3 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createContext,
@@ -13,7 +12,7 @@ export type ItemCarrinho = {
   id: string;
   nome: string;
   sabores: string[];
-  preco: number;
+  precoCentavos: number;
   quantidade: number;
 };
 
@@ -28,7 +27,7 @@ type CarrinhoContextType = {
   total: number;
 };
 
-const CHAVE_CARRINHO = '@sabor-da-gente:carrinho';
+const CHAVE_CARRINHO = '@sabor-da-gente:carrinho:v2';
 
 const CarrinhoContext = createContext<CarrinhoContextType | undefined>(
   undefined
@@ -109,7 +108,7 @@ export function CarrinhoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const total = itens.reduce(
-    (soma, item) => soma + item.preco * item.quantidade,
+    (soma, item) => soma + item.precoCentavos * item.quantidade,
     0
   );
 
