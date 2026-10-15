@@ -1,12 +1,15 @@
+import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+
+import { listarCategorias } from '@/services/cardapioService';
 
 export default function HomeScreen() {
+  const categorias = listarCategorias();
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Cabeçalho */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Olá! 👋</Text>
@@ -18,7 +21,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Destaque */}
         <View style={styles.highlight}>
           <Text style={styles.highlightTitle}>
             Seu sabor favorito está aqui! 🍕
@@ -36,49 +38,26 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Categorias */}
         <Text style={styles.sectionTitle}>Categorias</Text>
 
         <View style={styles.categories}>
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/cardapio')}
-          >
-            <Text style={styles.categoryIcon}>🍕</Text>
-            <Text style={styles.categoryText}>Pizzas</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/cardapio')}
-          >
-            <Text style={styles.categoryIcon}>🥟</Text>
-            <Text style={styles.categoryText}>Esfihas</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/cardapio')}
-          >
-            <Text style={styles.categoryIcon}>🥤</Text>
-            <Text style={styles.categoryText}>Bebidas</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/cardapio')}
-          >
-            <Text style={styles.categoryIcon}>🍫</Text>
-            <Text style={styles.categoryText}>Sobremesas</Text>
-          </TouchableOpacity>
+          {categorias.map((categoria) => (
+            <TouchableOpacity
+              key={categoria.id}
+              style={styles.category}
+              onPress={() => router.push(`/categoria/${categoria.id}`)}
+            >
+              <Text style={styles.categoryIcon}>{categoria.emoji}</Text>
+              <Text style={styles.categoryText}>{categoria.titulo}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Mais pedidos */}
         <Text style={styles.sectionTitle}>Mais pedidos</Text>
 
         <TouchableOpacity
           style={styles.productCard}
-          onPress={() => router.push('/cardapio')}
+          onPress={() => router.push('/categoria/pizzas')}
         >
           <View style={styles.productIcon}>
             <Text style={styles.productEmoji}>🍕</Text>

@@ -1,3 +1,6 @@
+import { useCarrinho } from '@/context/CarrinhoContext';
+import { avisar, confirmar } from '@/utils/alerta';
+import { formatarCentavos } from '@/utils/dinheiro';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -9,9 +12,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useCarrinho } from '@/context/CarrinhoContext';
-import { avisar, confirmar } from '@/utils/alerta';
-import { formatarPreco } from '@/utils/dinheiro';
 
 type TipoEntrega = 'entrega' | 'retirada';
 type FormaPagamento = 'Pix' | 'Dinheiro' | 'Cartão';
@@ -69,7 +69,7 @@ export default function FinalizarPedidoScreen() {
         ? `Troco para: R$ ${troco.trim()}\n`
         : '') +
       `\nProdutos:\n${resumoItens}\n\n` +
-      `Total: ${formatarPreco(total)}`;
+      `Total: ${formatarCentavos(total)}`;
 
     const confirmou = await confirmar(
       'Revise seu pedido',
@@ -269,7 +269,7 @@ export default function FinalizarPedidoScreen() {
               </Text>
 
               <Text style={styles.summaryPrice}>
-                {formatarPreco(item.preco * item.quantidade)}
+                {formatarCentavos(item.precoCentavos * item.quantidade)}
               </Text>
             </View>
           ))}
@@ -280,7 +280,7 @@ export default function FinalizarPedidoScreen() {
             </Text>
 
             <Text style={styles.total}>
-              {formatarPreco(total)}
+              {formatarCentavos(total)}
             </Text>
           </View>
         </View>
