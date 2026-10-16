@@ -1,7 +1,9 @@
+import { useCarrinho } from '@/context/CarrinhoContext';
+import { confirmar } from '@/utils/alerta';
+import { formatarCentavos } from '@/utils/dinheiro';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,9 +11,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useCarrinho } from '@/context/CarrinhoContext';
-import { formatarPreco } from '@/utils/dinheiro';
-
 
 export default function CarrinhoScreen() {
   const {
@@ -24,11 +23,16 @@ export default function CarrinhoScreen() {
     total,
   } = useCarrinho();
 
-  function confirmarLimpeza() {
-    Alert.alert('Limpar carrinho', 'Deseja remover todos os itens?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Limpar', style: 'destructive', onPress: limparCarrinho },
-    ]);
+  async function confirmarLimpeza() {
+    const confirmou = await confirmar(
+      'Limpar carrinho',
+      'Deseja remover todos os itens?',
+      'Limpar',
+    );
+
+    if (confirmou) {
+      limparCarrinho();
+    }
   }
 
   if (carregando) {
@@ -76,7 +80,7 @@ export default function CarrinhoScreen() {
                       </Text>
                     )}
                     <Text style={styles.unitPrice}>
-                      {formatarPreco(item.preco)} por unidade
+                      {formatarCentavos(item.precoCentavos)} por unidade
                     </Text>
                   </View>
 
@@ -107,7 +111,7 @@ export default function CarrinhoScreen() {
                   </View>
 
                   <Text style={styles.itemTotal}>
-                    {formatarPreco(item.preco * item.quantidade)}
+                    {formatarCentavos(item.precoCentavos * item.quantidade)}
                   </Text>
                 </View>
               </View>
@@ -115,7 +119,7 @@ export default function CarrinhoScreen() {
 
             <View style={styles.summary}>
               <Text style={styles.summaryLabel}>Total do pedido</Text>
-              <Text style={styles.total}>{formatarPreco(total)}</Text>
+              <Text style={styles.total}>{formatarCentavos(total)}</Text>
             </View>
 
             <TouchableOpacity

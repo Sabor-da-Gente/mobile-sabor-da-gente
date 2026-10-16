@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export type EstadoConsulta<T> = {
   dados: T | undefined;
@@ -7,12 +7,13 @@ export type EstadoConsulta<T> = {
 };
 
 /** Passe uma função estável (useCallback): ela roda de novo sempre que mudar. */
-export function useConsulta<T>(consulta: () => Promise<T>): EstadoConsulta<T> {
+export function useConsulta<T>(consulta: () => Promise<T>): EstadoConsulta<T> & { recarregar: () => void } {
   const [estado, setEstado] = useState<EstadoConsulta<T>>({
     dados: undefined,
     carregando: true,
     erro: undefined,
   });
+  const [tentativa, setTentativa] = useState(0);
 
   useEffect(() => {
     let ativo = true;
@@ -33,7 +34,12 @@ export function useConsulta<T>(consulta: () => Promise<T>): EstadoConsulta<T> {
     return () => {
       ativo = false;
     };
-  }, [consulta]);
+  }, [consulta, tentativa]);
 
-  return estado;
+  const recarregar = useCallback(() => {
+    setEstado({ dados: undefined, carregando: true, erro: undefined });
+    setTentativa((t) => t + 1);
+  }, []);
+
+  return { ...estado, recarregar };
 }
