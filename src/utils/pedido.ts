@@ -4,6 +4,7 @@ export const ROTULO_STATUS: Record<StatusPedido, string> = {
   recebido: 'Recebido',
   em_preparo: 'Em preparo',
   saiu_para_entrega: 'Saiu para entrega',
+  pronto_para_retirada: 'Pronto para retirada',
   entregue: 'Entregue',
   cancelado: 'Cancelado',
 };
@@ -12,6 +13,7 @@ export const COR_STATUS: Record<StatusPedido, string> = {
   recebido: '#B7791F',
   em_preparo: '#2B6CB0',
   saiu_para_entrega: '#6B46C1',
+  pronto_para_retirada: '#6B46C1',
   entregue: '#2F855A',
   cancelado: '#B42318',
 };
@@ -26,4 +28,12 @@ export function formatarDataHora(iso: string): string {
   const minuto = String(data.getMinutes()).padStart(2, '0');
 
   return `${dia}/${mes}/${ano} ${hora}:${minuto}`;
+}
+
+/** "14:05:30" */
+export function formatarHora(iso: string): string {
+  const data = new Date(iso);
+  return [data.getHours(), data.getMinutes(), data.getSeconds()]
+    .map((n) => String(n).padStart(2, '0'))
+    .join(':');
 }
