@@ -22,6 +22,12 @@ import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
 
+// Aberto logo após o pedido ou por um link, pode não haver tela anterior.
+function voltar() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
+
 export default function PedidoDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const pedidoRepo = usePedidoRepository();
@@ -90,7 +96,7 @@ export default function PedidoDetalheScreen() {
 
     try {
       await excluirPedido(pedidoRepo, pedido.id);
-      router.back();
+      voltar();
     } catch (erro) {
       console.error('Erro ao excluir pedido:', erro);
       avisar('Erro', 'Não foi possível excluir o pedido. Tente novamente.');
@@ -112,7 +118,7 @@ export default function PedidoDetalheScreen() {
         <View style={styles.centro}>
           <Text style={styles.titulo}>Pedido não encontrado</Text>
 
-          <TouchableOpacity style={styles.botaoPrimario} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.botaoPrimario} onPress={voltar}>
             <Text style={styles.botaoPrimarioTexto}>Voltar</Text>
           </TouchableOpacity>
         </View>
@@ -123,7 +129,7 @@ export default function PedidoDetalheScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={voltar}>
           <Text style={styles.voltar}>‹ Voltar</Text>
         </TouchableOpacity>
 
@@ -169,10 +175,20 @@ export default function PedidoDetalheScreen() {
 
           {pedido.itens.map((item, indice) => (
             <View key={`${item.nome}-${indice}`} style={styles.item}>
-              <Text style={styles.itemNome}>
-                {item.quantidade}x {item.nome}
-                {item.sabores.length > 0 ? ` (${item.sabores.join(' e ')})` : ''}
-              </Text>
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemNome}>
+                  {item.quantidade}x {item.nome}
+                </Text>
+                {item.sabores.length > 0 && (
+                  <Text style={styles.itemDetalhe}>Sabores: {item.sabores.join(' e ')}</Text>
+                )}
+                {item.adicionais.length > 0 && (
+                  <Text style={styles.itemDetalhe}>
+                    {item.adicionais.map((a) => `+ ${a}`).join(' · ')}
+                  </Text>
+                )}
+                {item.observacao && <Text style={styles.itemDetalhe}>Obs.: {item.observacao}</Text>}
+              </View>
 
               <Text style={styles.itemPreco}>
                 {formatarCentavos(item.precoCentavos * item.quantidade)}
@@ -249,6 +265,8 @@ const styles = StyleSheet.create({
   linha: { fontSize: 15, color: Paleta.texto, marginBottom: 4 },
   item: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
   itemNome: { flex: 1, fontSize: 14, color: Paleta.texto },
+  itemInfo: { flex: 1 },
+  itemDetalhe: { fontSize: 13, color: Paleta.textoSuave, marginTop: 2 },
   itemPreco: { fontSize: 14, fontWeight: '600', color: Paleta.texto },
   totalLinha: {
     borderTopWidth: 1,

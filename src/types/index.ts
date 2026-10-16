@@ -31,9 +31,13 @@ export type TipoEntrega = 'entrega' | 'retirada';
 
 export type FormaPagamento = 'Pix' | 'Dinheiro' | 'Cartão';
 
+/** Item como foi vendido: nomes e preços da época do pedido. */
 export type ItemPedido = {
+  /** "Esfiha de Carne" ou "Pizza Grande · Massa Fina". */
   nome: string;
   sabores: string[];
+  adicionais: string[];
+  observacao: string | null;
   precoCentavos: number;
   quantidade: number;
 };
@@ -57,4 +61,5 @@ export type Pedido = {
   criadoEm: string;
 };
 
-export type NovoPedido = Omit<Pedido, 'id' | 'numero' | 'status' | 'criadoEm'>;
+/** Dados do pedido sem os itens: eles vêm direto do carrinho. */
+export type NovoPedido = Omit<Pedido, 'id' | 'numero' | 'status' | 'criadoEm' | 'itens'>;

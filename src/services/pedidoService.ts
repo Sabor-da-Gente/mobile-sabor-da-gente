@@ -1,3 +1,4 @@
+import type { ItemCarrinho } from '@/models/ItemCarrinho';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { NovoPedido, Pedido } from '@/types';
 
@@ -25,10 +26,6 @@ async function enviarParaApi(pedido: Pedido): Promise<boolean> {
   }
 }
 
-/**
- * Salva o pedido no celular e, se houver API configurada, tenta enviá-lo.
- * `enviado` é `undefined` quando não há API.
- */
 export function listarPedidos(repo: PedidoRepository): Promise<Pedido[]> {
   return repo.listar();
 }
@@ -45,11 +42,16 @@ export function excluirPedido(repo: PedidoRepository, id: number): Promise<void>
   return repo.excluir(id);
 }
 
+/**
+ * Salva o pedido no celular e, se houver API configurada, tenta enviá-lo.
+ * `enviado` é `undefined` quando não há API.
+ */
 export async function criarPedido(
   repo: PedidoRepository,
   novo: NovoPedido,
+  itens: ItemCarrinho[],
 ): Promise<{ pedido: Pedido; enviado: boolean | undefined }> {
-  const pedido = await repo.criar(novo);
+  const pedido = await repo.criar(novo, itens);
   const enviado = API_URL ? await enviarParaApi(pedido) : undefined;
   return { pedido, enviado };
 }
