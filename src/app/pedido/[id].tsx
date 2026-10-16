@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,12 +24,9 @@ import { finalizado, podeCancelar, proximoStatus } from '@/services/StatusServic
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
+import { voltarOu } from '@/utils/rotas';
 
-// Aberto logo após o pedido ou por um link, pode não haver tela anterior.
-function voltar() {
-  if (router.canGoBack()) router.back();
-  else router.replace('/');
-}
+const voltar = () => voltarOu('/');
 
 export default function PedidoDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

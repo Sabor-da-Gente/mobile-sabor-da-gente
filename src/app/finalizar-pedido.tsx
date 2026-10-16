@@ -21,6 +21,7 @@ import { criarPedido } from '@/services/pedidoService';
 import type { FormaPagamento, TipoEntrega } from '@/types';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos, lerCentavos } from '@/utils/dinheiro';
+import { voltarOu } from '@/utils/rotas';
 import { formatarTelefone, telefoneValido } from '@/utils/validacao';
 
 export default function FinalizarPedidoScreen() {
@@ -224,7 +225,7 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => voltarOu('/carrinho')}>
           <Text style={styles.back}>‹ Voltar ao carrinho</Text>
         </TouchableOpacity>
 

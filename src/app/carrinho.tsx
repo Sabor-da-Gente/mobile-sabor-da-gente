@@ -13,6 +13,7 @@ import { useCarrinho } from '@/context/CarrinhoContext';
 import { TAXA_ENTREGA_CENTAVOS } from '@/services/PrecoService';
 import { confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
+import { voltarOu } from '@/utils/rotas';
 
 export default function CarrinhoScreen() {
   const {
@@ -48,7 +49,7 @@ export default function CarrinhoScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => voltarOu('/cardapio')}>
           <Text style={styles.back}>‹ Voltar</Text>
         </TouchableOpacity>
 

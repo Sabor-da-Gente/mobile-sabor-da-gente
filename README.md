@@ -22,6 +22,19 @@ Desenvolver um sistema de pizzaria com:
 
 ---
 
+## 📌 Escopo
+
+Esta versão é o **app do cliente funcionando sem internet**: tudo fica num banco SQLite no próprio celular, com **um perfil por aparelho**.
+
+**Fica para depois**, junto com a API do painel administrativo (DAW3):
+
+- login e cadastro com senha (hoje o perfil é local, sem senha);
+- cardápio e status do pedido vindos do servidor (hoje o cardápio vem do banco local e o status é simulado);
+- área administrativa (é o projeto web de DAW3);
+- pagamento real e cupons.
+
+---
+
 ## 🛠️ Tecnologias
 
 - React Native
@@ -30,15 +43,22 @@ Desenvolver um sistema de pizzaria com:
 - SQLite no aparelho (`expo-sqlite`)
 - Git e GitHub
 
-### Persistência local
+---
 
-O app funciona **sem internet**. O cardápio, o carrinho, o perfil, os endereços e os pedidos ficam num banco **SQLite** no próprio celular (`sabor-da-gente.db`):
+## 🧠 Decisões técnicas
 
-- Na primeira abertura, o app cria as tabelas e carrega o cardápio inicial (`src/database/schema.ts` e `seed.ts`).
-- A versão do banco é controlada por `PRAGMA user_version` (`src/database/migracoes.ts`). Uma mudança no banco vira uma nova migração; nunca se edita uma versão já publicada.
-- Um pedido é gravado numa **transação**: o pedido, os itens e o primeiro status entram juntos, ou nada é gravado.
-
-As telas nunca escrevem SQL: elas usam os **repositórios** (`src/repositories`). Hoje a implementação é a SQLite; quando a API do painel administrativo (DAW3) existir, basta criar uma implementação nova com as mesmas interfaces e trocá-la em `src/hooks/use-repositorios.ts`.
+| Assunto | Decisão | Por quê |
+|---|---|---|
+| Onde ficam os dados | **SQLite no celular** (`expo-sqlite`, arquivo `sabor-da-gente.db`): cardápio, carrinho, perfil, endereços, favoritos e pedidos | O app funciona offline e já vem no Expo Go, sem build nativo |
+| Criação e evolução do banco | Na primeira abertura, cria as tabelas e carrega o cardápio (`src/database`). Versões controladas por `PRAGMA user_version`; cada mudança é uma **nova migração** | Quem já tem o app instalado recebe as mudanças sem perder dados |
+| Acesso aos dados | As telas nunca escrevem SQL: usam **repositórios** (interfaces em `src/repositories`, implementação em `sqlite/`) | Quando a API existir, basta criar outra implementação e trocá-la em `src/hooks/use-repositorios.ts` |
+| SQL seguro | Valores sempre por parâmetro (`?`), nunca concatenando texto digitado | Evita SQL injection |
+| Dinheiro | Em **centavos** (inteiros): `4500` = R$ 45,00 | Sem erros de arredondamento |
+| Gravar um pedido | Pedido, itens, sabores, adicionais, primeiro status e limpeza do carrinho numa **transação** | Ou entra tudo, ou nada muda |
+| Histórico | O pedido copia nomes e preços da época | O histórico não muda se o cardápio mudar |
+| Regras de negócio | Preço da pizza, taxa e validações no `PrecoService`; status no `StatusService` | Ficam num lugar só, fora das telas |
+| Status do pedido | Simulado pelo tempo (30 s, 60 s, 60 s), gravando o horário de cada etapa | Dá para demonstrar o acompanhamento sem servidor |
+| Nomes dos status | O app usa os combinados com o admin (`recebido`, `em_preparo`...); o banco segue o plano (`realizado`, `em_preparacao`...). O repositório traduz | Os dois lados ainda vão escolher um padrão único |
 
 ---
 
@@ -65,6 +85,17 @@ Use o IP do computador onde a API está rodando. Ele muda de rede para rede, por
 
 **Navegador.** Também roda com `npx expo start --web`, mas o SQLite na web ainda está em fase *alpha* no Expo. Para testar e apresentar, use o celular.
 
+**Antes de abrir um PR**, rode a checagem de tipos e o lint:
+
+```bash
+npx tsc --noEmit
+npx expo lint
+```
+
+**Zerar os dados do app:** desinstale o Expo Go (ou limpe os dados dele) e abra o projeto de novo. O banco é recriado com o cardápio inicial.
+
+O roteiro usado na apresentação está no `plano.md` (§9).
+
 ---
 
 ## 🗂️ Estrutura do projeto
@@ -81,15 +112,15 @@ src/
 │   ├── pedidos.tsx
 │   ├── pedido/     detalhe do pedido /pedido/[id]
 │   └── enderecos/  lista e cadastro/edição de endereços
-├── components/     componentes reutilizáveis (tela-categoria, estados de tela)
+├── components/     componentes reutilizáveis (tela-categoria, linha-do-tempo, botao-favorito...)
 ├── constants/      paleta de cores e tema
-├── context/        CarrinhoContext (estado global do carrinho)
+├── context/        CarrinhoContext e FavoritosContext (estado compartilhado entre telas)
 ├── database/       esquema, cardápio inicial e migrações do SQLite
 ├── hooks/          hooks de dados (use-produtos, use-repositorios)
 ├── models/         classes do cardápio e do carrinho (Produto, Sabor, ItemPizza...)
 ├── repositories/   interfaces de acesso aos dados
 │   └── sqlite/     implementação com SQLite
-├── services/       regras de preço (PrecoService) e conversões usadas pelas telas
+├── services/       regras de negócio (PrecoService, StatusService) e serviços usados pelas telas
 ├── types/          tipos compartilhados (Categoria, Produto, Pedido)
 └── utils/          dinheiro, alertas e rotas
 ```
@@ -105,14 +136,11 @@ O esquema completo está em `src/database/schema.ts`. Ele usa os mesmos nomes de
 | Grupo | Tabelas |
 |---|---|
 | Cardápio | `categorias`, `produtos`, `tamanhos`, `massas`, `sabores`, `sabor_precos`, `adicionais` |
-| Cliente | `perfil` (uma linha por aparelho), `enderecos` |
+| Cliente | `perfil` (uma linha por aparelho), `enderecos`, `favoritos` |
 | Carrinho | `carrinho_itens`, `carrinho_item_sabores`, `carrinho_item_adicionais` |
 | Pedidos | `pedidos`, `itens_pedido`, `itens_pedido_sabores`, `itens_pedido_adicionais`, `pedido_status_historico` |
-| Próximas etapas | `favoritos` |
 
-O pedido guarda os nomes e os preços dos itens **no momento da compra**, para o histórico não mudar se o cardápio mudar.
-
-Os preços são guardados em **centavos** (inteiros), por exemplo `4500` para R$ 45,00, o que evita erros de arredondamento.
+O pedido guarda os nomes e os preços dos itens **no momento da compra**, e todos os valores são em **centavos** (veja as decisões técnicas acima).
 
 ---
 
@@ -162,6 +190,12 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 - **Endereços**: cadastrar, editar, remover e escolher o principal. O primeiro cadastrado já vira o principal; se o principal for removido, outro assume;
 - Validação de telefone, CEP (opcional) e UF.
 
+### ❤️ Favoritos
+
+- Coração (♡/♥) nos produtos de cada categoria e nos sabores do "Monte sua pizza";
+- Lista de favoritos no Perfil, guardada no celular;
+- Tocar num produto favorito abre a categoria dele; tocar num sabor abre o "Monte sua pizza" com ele já escolhido.
+
 ### ⏱️ Acompanhamento do pedido
 
 - Linha do tempo no detalhe do pedido, com o horário de cada etapa: Recebido → Em preparo → Saiu para entrega (ou Pronto para retirada) → Entregue;
@@ -189,10 +223,11 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 
 As etapas estão detalhadas em `plano.md`.
 
-- Favoritos (Etapa 6);
-- Login e cadastro, junto com a integração com a API do painel;
-- Integração completa com a API do painel administrativo;
-- Tema claro e escuro;
+As Etapas 0 a 6 do plano estão concluídas. Próximos passos:
+
+- Integração com a API do painel administrativo, incluindo login e cadastro (`plano.md`, §11);
+- Um padrão único de nomes de status entre o app e o admin;
+- Tema claro e escuro.
 
 ---
 

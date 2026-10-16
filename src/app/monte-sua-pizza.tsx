@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ScrollView,
@@ -11,15 +11,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BarraAdicionado } from '@/components/barra-adicionado';
+import { BotaoFavorito } from '@/components/botao-favorito';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useConsulta } from '@/hooks/use-consulta';
 import { useCardapioRepository } from '@/hooks/use-repositorios';
 import type { OpcoesPizza } from '@/models/Pizza';
+import type { AlvoFavorito } from '@/repositories/FavoritoRepository';
 import { precoPizza, problemaNosSabores } from '@/services/PrecoService';
 import { avisar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
+import { voltarOu } from '@/utils/rotas';
 
 export default function MonteSuaPizzaScreen() {
   const repo = useCardapioRepository();
@@ -50,7 +53,13 @@ function Montagem({ opcoes }: { opcoes: OpcoesPizza }) {
 
   const [tamanhoId, setTamanhoId] = useState(opcoes.tamanhos.at(-1)!.id);
   const [massaId, setMassaId] = useState(opcoes.massas[0].id);
-  const [saborIds, setSaborIds] = useState<number[]>([]);
+  // Vindo de um favorito (/monte-sua-pizza?sabor=1), o sabor já começa escolhido.
+  const { sabor: saborInicial } = useLocalSearchParams<{ sabor?: string }>();
+  const [saborIds, setSaborIds] = useState<number[]>(() => {
+    const id = Number(saborInicial);
+    const maior = opcoes.tamanhos.at(-1)!;
+    return opcoes.sabores.some((s) => s.id === id && s.disponivelNo(maior.id)) ? [id] : [];
+  });
   const [adicionalIds, setAdicionalIds] = useState<number[]>([]);
   const [observacao, setObservacao] = useState('');
   const [banner, setBanner] = useState<string | null>(null);
@@ -115,10 +124,6 @@ function Montagem({ opcoes }: { opcoes: OpcoesPizza }) {
     setObservacao('');
   }
 
-  function voltar() {
-    if (router.canGoBack()) router.back();
-    else router.replace('/cardapio');
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -128,7 +133,7 @@ function Montagem({ opcoes }: { opcoes: OpcoesPizza }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <TouchableOpacity style={styles.botaoVoltar} onPress={voltar}>
+          <TouchableOpacity style={styles.botaoVoltar} onPress={() => voltarOu('/cardapio')}>
             <Text style={styles.botaoVoltarTexto}>← Voltar</Text>
           </TouchableOpacity>
 
@@ -185,6 +190,7 @@ function Montagem({ opcoes }: { opcoes: OpcoesPizza }) {
             descricao={sabor.descricao}
             preco={formatarCentavos(sabor.precoNoTamanho(tamanho.id) ?? 0)}
             onPress={() => alternarSabor(sabor.id)}
+            favorito={{ tipo: 'sabor', id: sabor.id }}
           />
         ))}
 
@@ -248,6 +254,7 @@ function Opcao(props: {
   descricao?: string;
   preco: string;
   onPress: () => void;
+  favorito?: AlvoFavorito;
 }) {
   return (
     <TouchableOpacity
@@ -260,6 +267,8 @@ function Opcao(props: {
         {props.descricao ? <Text style={styles.opcaoDescricao}>{props.descricao}</Text> : null}
         <Text style={styles.opcaoPreco}>{props.preco}</Text>
       </View>
+
+      {props.favorito && <BotaoFavorito alvo={props.favorito} nome={props.titulo} />}
 
       <View style={[styles.checkbox, props.selecionado && styles.checkboxSelecionado]}>
         {props.selecionado && <Text style={styles.check}>✓</Text>}

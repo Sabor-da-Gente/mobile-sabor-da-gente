@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { CarrinhoProvider } from '@/context/CarrinhoContext';
+import { FavoritosProvider } from '@/context/FavoritosContext';
 import { migrar, NOME_BANCO } from '@/database/migracoes';
 
 SplashScreen.preventAutoHideAsync();
@@ -17,8 +18,10 @@ export default function RootLayout() {
       {/* Abre o banco e roda as migrações antes de mostrar qualquer tela. */}
       <SQLiteProvider databaseName={NOME_BANCO} onInit={migrar}>
         <CarrinhoProvider>
-          {/* Todas as telas usam cabeçalho próprio (botão "Voltar" dentro da tela). */}
-          <Stack screenOptions={{ headerShown: false }} />
+          <FavoritosProvider>
+            {/* Todas as telas usam cabeçalho próprio (botão "Voltar" dentro da tela). */}
+            <Stack screenOptions={{ headerShown: false }} />
+          </FavoritosProvider>
         </CarrinhoProvider>
       </SQLiteProvider>
 

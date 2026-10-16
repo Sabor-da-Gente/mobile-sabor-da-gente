@@ -3,10 +3,12 @@ import { useMemo } from 'react';
 
 import type { CardapioRepository } from '@/repositories/CardapioRepository';
 import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
+import type { FavoritoRepository } from '@/repositories/FavoritoRepository';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
 import { SqliteCardapioRepository } from '@/repositories/sqlite/SqliteCardapioRepository';
 import { SqliteCarrinhoRepository } from '@/repositories/sqlite/SqliteCarrinhoRepository';
+import { SqliteFavoritoRepository } from '@/repositories/sqlite/SqliteFavoritoRepository';
 import { SqlitePedidoRepository } from '@/repositories/sqlite/SqlitePedidoRepository';
 import { SqlitePerfilRepository } from '@/repositories/sqlite/SqlitePerfilRepository';
 
@@ -29,4 +31,9 @@ export function usePedidoRepository(): PedidoRepository {
 export function usePerfilRepository(): PerfilRepository {
   const db = useSQLiteContext();
   return useMemo(() => new SqlitePerfilRepository(db), [db]);
+}
+
+export function useFavoritoRepository(): FavoritoRepository {
+  const db = useSQLiteContext();
+  return useMemo(() => new SqliteFavoritoRepository(db), [db]);
 }
