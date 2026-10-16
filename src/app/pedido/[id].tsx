@@ -180,6 +180,13 @@ export default function PedidoDetalheScreen() {
             </View>
           ))}
 
+          {pedido.taxaEntregaCentavos > 0 && (
+            <View style={styles.item}>
+              <Text style={styles.itemNome}>Taxa de entrega</Text>
+              <Text style={styles.itemPreco}>{formatarCentavos(pedido.taxaEntregaCentavos)}</Text>
+            </View>
+          )}
+
           <View style={styles.totalLinha}>
             <Text style={styles.totalRotulo}>Total</Text>
             <Text style={styles.total}>{formatarCentavos(pedido.totalCentavos)}</Text>

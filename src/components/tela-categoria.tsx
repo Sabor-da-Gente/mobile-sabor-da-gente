@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Redirect, router } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,11 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BarraAdicionado } from '@/components/barra-adicionado';
 import { Paleta } from '@/constants/paleta';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useProdutos } from '@/hooks/use-produtos';
 import type { Produto } from '@/types';
-import { avisar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 
 type Ordem = 'padrao' | 'preco';
@@ -29,24 +29,12 @@ function normalizar(texto: string): string {
 
 export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined }) {
   const { categoria, produtos, carregando, erro, recarregar } = useProdutos(categoriaId);
-  const { adicionarItem, itens } = useCarrinho();
+  const { adicionar, quantidadeTotal } = useCarrinho();
 
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState<Ordem>('padrao');
-  const [selecionados, setSelecionados] = useState<string[]>([]);
   const [banner, setBanner] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!banner) return;
-
-    const cronometro = setTimeout(() => setBanner(null), 4000);
-
-    return () => clearTimeout(cronometro);
-  }, [banner]);
-
-  const combinaSabores = (categoria?.maxSabores ?? 1) > 1;
-
-  const quantidadeCarrinho = itens.reduce((soma, item) => soma + item.quantidade, 0);
+  const fecharBanner = useCallback(() => setBanner(null), []);
 
   const visiveis = useMemo(() => {
     const termo = normalizar(busca.trim());
@@ -63,15 +51,6 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
       ? [...filtrados].sort((a, b) => a.precoCentavos - b.precoCentavos)
       : filtrados;
   }, [produtos, busca, ordem]);
-
-  const produtosSelecionados = produtos.filter((produto) =>
-    selecionados.includes(produto.id),
-  );
-
-  const precoCombinado = produtosSelecionados.reduce(
-    (maior, produto) => Math.max(maior, produto.precoCentavos),
-    0,
-  );
 
   if (carregando && !categoria) {
     return (
@@ -101,48 +80,12 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
     );
   }
 
-  function alternarSabor(produto: Produto) {
-    if (selecionados.includes(produto.id)) {
-      setSelecionados((atuais) => atuais.filter((id) => id !== produto.id));
-      return;
-    }
-
-    if (selecionados.length >= (categoria?.maxSabores ?? 1)) {
-      avisar(
-        'Limite de sabores',
-        `Você pode escolher até ${categoria?.maxSabores} sabores.`,
-      );
-      return;
-    }
-
-    setSelecionados((atuais) => [...atuais, produto.id]);
+  if (categoria.ehPizza) {
+    return <Redirect href="/monte-sua-pizza" />;
   }
 
-  function adicionarCombinado() {
-    if (produtosSelecionados.length === 0) {
-      avisar('Escolha um sabor', 'Selecione pelo menos um sabor para continuar.');
-      return;
-    }
-
-    const sabores = produtosSelecionados.map((produto) => produto.nome);
-
-    adicionarItem({
-      nome: categoria?.nomeItem ?? categoria?.titulo ?? 'Item',
-      sabores,
-      precoCentavos: precoCombinado,
-    });
-
-    setSelecionados([]);
-    setBanner(`${sabores.join(' e ')} adicionado ao carrinho`);
-  }
-
-  function adicionarProduto(produto: Produto) {
-    adicionarItem({
-      nome: produto.nome,
-      sabores: [],
-      precoCentavos: produto.precoCentavos,
-    });
-
+  async function adicionarProduto(produto: Produto) {
+    await adicionar({ tipo: 'produto', produtoId: produto.id });
     setBanner(`${produto.nome} adicionado ao carrinho`);
   }
 
@@ -175,7 +118,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
               accessibilityLabel="Abrir carrinho"
             >
               <Text style={styles.botaoCarrinhoTexto}>
-                🛒 {quantidadeCarrinho > 0 ? quantidadeCarrinho : ''}
+                🛒 {quantidadeTotal > 0 ? quantidadeTotal : ''}
               </Text>
             </TouchableOpacity>
           </View>
@@ -203,16 +146,6 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
           </TouchableOpacity>
         </View>
 
-        {combinaSabores && (
-          <View style={styles.resumo}>
-            <Text style={styles.resumoTitulo}>Monte sua {categoria.nomeItem?.toLowerCase()}</Text>
-            <Text style={styles.resumoTexto}>
-              {selecionados.length} de {categoria.maxSabores} sabores selecionados
-            </Text>
-            <Text style={styles.resumoTotal}>Total: {formatarCentavos(precoCombinado)}</Text>
-          </View>
-        )}
-
         {carregando && <ActivityIndicator size="large" color={Paleta.primaria} style={styles.loading} />}
 
         {!carregando && erro && (
@@ -235,54 +168,26 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
 
         {!carregando &&
           !erro &&
-          visiveis.map((produto) => {
-            const selecionado = selecionados.includes(produto.id);
+          visiveis.map((produto) => (
+            <View key={produto.id} style={styles.cartao}>
+              <View style={styles.cartaoIcone}>
+                <Text style={styles.cartaoEmoji}>{produto.emoji}</Text>
+              </View>
 
-            return (
-              <TouchableOpacity
-                key={produto.id}
-                style={[styles.cartao, selecionado && styles.cartaoSelecionado]}
-                activeOpacity={combinaSabores ? 0.7 : 1}
-                onPress={combinaSabores ? () => alternarSabor(produto) : undefined}
-              >
-                <View style={styles.cartaoIcone}>
-                  <Text style={styles.cartaoEmoji}>{produto.emoji}</Text>
-                </View>
+              <View style={styles.cartaoInfo}>
+                <Text style={styles.cartaoNome}>{produto.nome}</Text>
+                <Text style={styles.cartaoDescricao}>{produto.descricao}</Text>
+                <Text style={styles.cartaoPreco}>{formatarCentavos(produto.precoCentavos)}</Text>
 
-                <View style={styles.cartaoInfo}>
-                  <Text style={styles.cartaoNome}>{produto.nome}</Text>
-                  <Text style={styles.cartaoDescricao}>{produto.descricao}</Text>
-                  <Text style={styles.cartaoPreco}>{formatarCentavos(produto.precoCentavos)}</Text>
-
-                  {!combinaSabores && (
-                    <TouchableOpacity
-                      style={styles.botaoAdicionar}
-                      onPress={() => adicionarProduto(produto)}
-                    >
-                      <Text style={styles.botaoAdicionarTexto}>+ Adicionar ao carrinho</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {combinaSabores && (
-                  <View style={[styles.checkbox, selecionado && styles.checkboxSelecionado]}>
-                    {selecionado && <Text style={styles.check}>✓</Text>}
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-
-        {combinaSabores && (
-          <TouchableOpacity
-            style={[styles.botaoPrimario, styles.botaoLargo, selecionados.length === 0 && styles.botaoDesabilitado]}
-            onPress={adicionarCombinado}
-          >
-            <Text style={styles.botaoPrimarioTexto}>
-              Adicionar ao carrinho · {formatarCentavos(precoCombinado)}
-            </Text>
-          </TouchableOpacity>
-        )}
+                <TouchableOpacity
+                  style={styles.botaoAdicionar}
+                  onPress={() => adicionarProduto(produto)}
+                >
+                  <Text style={styles.botaoAdicionarTexto}>+ Adicionar ao carrinho</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
 
         <TouchableOpacity
           style={styles.botaoSecundario}
@@ -292,22 +197,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
         </TouchableOpacity>
       </ScrollView>
 
-      {banner && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerTexto} numberOfLines={2}>
-            ✓ {banner}
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => {
-              setBanner(null);
-              router.push('/carrinho');
-            }}
-          >
-            <Text style={styles.bannerAcao}>Ver carrinho</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {banner && <BarraAdicionado mensagem={banner} onFechar={fecharBanner} />}
     </SafeAreaView>
   );
 }
@@ -361,16 +251,6 @@ const styles = StyleSheet.create({
   chipTexto: { fontSize: 13, fontWeight: '600', color: Paleta.texto },
   chipTextoAtivo: { color: Paleta.textoSobrePrimaria },
 
-  resumo: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 18,
-    borderRadius: 16,
-    backgroundColor: Paleta.primaria,
-  },
-  resumoTitulo: { fontSize: 18, fontWeight: 'bold', color: Paleta.textoSobrePrimaria, marginBottom: 6 },
-  resumoTexto: { fontSize: 14, color: '#FFE9D6', marginBottom: 4 },
-  resumoTotal: { fontSize: 18, fontWeight: 'bold', color: Paleta.destaque },
 
   loading: { marginVertical: 30 },
   centro: { alignItems: 'center', padding: 24 },
@@ -388,7 +268,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Paleta.borda,
   },
-  cartaoSelecionado: { borderColor: Paleta.primaria, borderWidth: 2, backgroundColor: '#FFF3E6' },
   cartaoIcone: {
     width: 64,
     height: 64,
@@ -413,18 +292,6 @@ const styles = StyleSheet.create({
   },
   botaoAdicionarTexto: { fontSize: 14, fontWeight: 'bold', color: Paleta.primaria },
 
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: Paleta.desabilitado,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  checkboxSelecionado: { backgroundColor: Paleta.primaria, borderColor: Paleta.primaria },
-  check: { color: Paleta.textoSobrePrimaria, fontSize: 15, fontWeight: 'bold' },
 
   botaoPrimario: {
     alignItems: 'center',
@@ -433,8 +300,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: Paleta.primaria,
   },
-  botaoLargo: { marginHorizontal: 20, marginTop: 6 },
-  botaoDesabilitado: { backgroundColor: Paleta.desabilitado },
   botaoPrimarioTexto: { color: Paleta.textoSobrePrimaria, fontSize: 16, fontWeight: 'bold' },
   botaoSecundario: {
     alignItems: 'center',
@@ -447,19 +312,4 @@ const styles = StyleSheet.create({
   },
   botaoSecundarioTexto: { color: Paleta.primaria, fontSize: 16, fontWeight: 'bold' },
 
-  banner: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: Paleta.texto,
-  },
-  bannerTexto: { flex: 1, fontSize: 14, color: Paleta.textoSobrePrimaria },
-  bannerAcao: { fontSize: 14, fontWeight: 'bold', color: Paleta.destaque },
 });

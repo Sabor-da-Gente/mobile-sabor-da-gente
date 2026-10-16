@@ -13,13 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
+import { calcularTotais } from '@/services/PrecoService';
 import { criarPedido } from '@/services/pedidoService';
 import type { FormaPagamento, TipoEntrega } from '@/types';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos, lerCentavos } from '@/utils/dinheiro';
 
 export default function FinalizarPedidoScreen() {
-  const { itens, total, limparCarrinho } = useCarrinho();
+  const { itens, subtotal, limparCarrinho } = useCarrinho();
   const pedidoRepo = usePedidoRepository();
 
   const [nome, setNome] = useState('');
@@ -29,6 +30,8 @@ export default function FinalizarPedidoScreen() {
   const [pagamento, setPagamento] = useState<FormaPagamento>('Pix');
   const [troco, setTroco] = useState('');
   const [enviando, setEnviando] = useState(false);
+
+  const { taxaEntrega, total } = calcularTotais(subtotal, tipoEntrega);
 
   async function confirmarPedido() {
     if (itens.length === 0) {
@@ -60,13 +63,7 @@ export default function FinalizarPedidoScreen() {
     }
 
     const resumoItens = itens
-      .map(
-        (item) =>
-          `${item.quantidade}x ${item.nome}` +
-          (item.sabores.length > 0
-            ? ` (${item.sabores.join(' e ')})`
-            : ''),
-      )
+      .map((item) => `${item.quantidade}x ${item.descricao()}`)
       .join('\n');
 
     const destino =
@@ -83,6 +80,7 @@ export default function FinalizarPedidoScreen() {
         ? `Troco para: ${formatarCentavos(trocoParaCentavos)}\n`
         : '') +
       `\nProdutos:\n${resumoItens}\n\n` +
+      (taxaEntrega > 0 ? `Taxa de entrega: ${formatarCentavos(taxaEntrega)}\n` : '') +
       `Total: ${formatarCentavos(total)}`;
 
     const confirmou = await confirmar(
@@ -106,16 +104,19 @@ export default function FinalizarPedidoScreen() {
         endereco: tipoEntrega === 'entrega' ? endereco.trim() : '',
         pagamento,
         trocoParaCentavos,
+        // Até a Etapa 4 o pedido guarda massa, adicionais e observação no nome do item.
         itens: itens.map((item) => ({
-          nome: item.nome,
+          nome: [item.nome, ...item.extras(), ...(item.observacao ? [`Obs.: ${item.observacao}`] : [])].join(' · '),
           sabores: item.sabores,
-          precoCentavos: item.precoCentavos,
+          precoCentavos: item.precoUnitario(),
           quantidade: item.quantidade,
         })),
+        subtotalCentavos: subtotal,
+        taxaEntregaCentavos: taxaEntrega,
         totalCentavos: total,
       });
 
-      limparCarrinho();
+      await limparCarrinho();
 
       avisar(
         `Pedido #${pedido.numero} confirmado!`,
@@ -304,17 +305,21 @@ export default function FinalizarPedidoScreen() {
           {itens.map((item) => (
             <View key={item.id} style={styles.summaryItem}>
               <Text style={styles.summaryName}>
-                {item.quantidade}x {item.nome}
-                {item.sabores.length > 0
-                  ? ` (${item.sabores.join(' e ')})`
-                  : ''}
+                {item.quantidade}x {item.descricao()}
               </Text>
 
               <Text style={styles.summaryPrice}>
-                {formatarCentavos(item.precoCentavos * item.quantidade)}
+                {formatarCentavos(item.subtotal())}
               </Text>
             </View>
           ))}
+
+          {taxaEntrega > 0 && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryName}>Taxa de entrega</Text>
+              <Text style={styles.summaryPrice}>{formatarCentavos(taxaEntrega)}</Text>
+            </View>
+          )}
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
