@@ -107,8 +107,8 @@ O esquema completo está em `src/database/schema.ts`. Ele usa os mesmos nomes de
 | Cardápio | `categorias`, `produtos`, `tamanhos`, `massas`, `sabores`, `sabor_precos`, `adicionais` |
 | Cliente | `perfil` (uma linha por aparelho), `enderecos` |
 | Carrinho | `carrinho_itens`, `carrinho_item_sabores`, `carrinho_item_adicionais` |
-| Pedidos | `pedidos`, `itens_pedido`, `pedido_status_historico` |
-| Próximas etapas | `favoritos`, `itens_pedido_sabores`, `itens_pedido_adicionais` |
+| Pedidos | `pedidos`, `itens_pedido`, `itens_pedido_sabores`, `itens_pedido_adicionais`, `pedido_status_historico` |
+| Próximas etapas | `favoritos` |
 
 O pedido guarda os nomes e os preços dos itens **no momento da compra**, para o histórico não mudar se o cardápio mudar.
 
@@ -168,6 +168,8 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 - Entrega em um endereço salvo (o principal vem escolhido) ou cadastro de um novo sem sair do pedido;
 - Tipo de recebimento (entrega ou retirada) e forma de pagamento;
 - Taxa de entrega somada ao total quando o pedido é para entrega;
+- Pedido, itens, sabores, adicionais, primeiro status e limpeza do carrinho gravados numa **transação só**: se algo falhar, nenhum pedido fica pela metade e o carrinho continua igual;
+- Depois de confirmar, abre direto o detalhe do pedido;
 - Validação do troco (precisa cobrir o total);
 - Resumo do pedido e confirmação;
 - Pedido salvo no SQLite do celular e, se configurado, enviado à API.
@@ -178,7 +180,6 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 
 As etapas estão detalhadas em `plano.md`.
 
-- Pedido com sabores e adicionais em tabelas próprias, em vez de texto no item (Etapa 4);
 - Acompanhamento do status do pedido (Etapa 5);
 - Favoritos (Etapa 6);
 - Login e cadastro, junto com a integração com a API do painel;

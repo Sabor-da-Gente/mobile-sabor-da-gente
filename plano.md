@@ -221,35 +221,35 @@ Para a apresentação, dá para pôr um **botão "Avançar status (demo)"** na t
 Cada etapa termina com o app rodando, `npx tsc --noEmit` e `npx expo lint` sem erros, e um PR revisado por outro integrante.
 
 ### Etapa 0 — Limpeza (½ dia)
-- [ ] Remover a aba Explore, o `reset-project` e as imagens `react-logo*`; ajustar a cor da splash
-- [ ] Criar `utils/dinheiro.ts` e trocar as 6 cópias de `formatarPreco`
-- [ ] Trocar `window.alert/confirm` por `Alert.alert` em `finalizar-pedido`
-- [ ] Declarar todas as telas no `Stack` com `headerShown: false` (hoje 4 telas mostram o cabeçalho padrão)
+- [x] Remover a aba Explore, o `reset-project` e as imagens `react-logo*`; ajustar a cor da splash
+- [x] Criar `utils/dinheiro.ts` e trocar as 6 cópias de `formatarPreco`
+- [x] Trocar `window.alert/confirm` por `Alert.alert` em `finalizar-pedido`
+- [x] Declarar todas as telas no `Stack` com `headerShown: false` (hoje 4 telas mostram o cabeçalho padrão)
 
 ### Etapa 1 — Banco e cardápio (2–3 dias) · *base para todas as outras*
-- [ ] `npx expo install expo-sqlite`
-- [ ] `database/schema.ts`, `migracoes.ts`, `seed.ts`
-- [ ] `SQLiteProvider` no `_layout.tsx`
-- [ ] Models do cardápio + `CardapioRepository` (SQLite)
-- [ ] Cardápio, `categoria/[slug]` e Home lendo do banco
+- [x] `npx expo install expo-sqlite`
+- [x] `database/schema.ts`, `migracoes.ts`, `seed.ts`
+- [x] `SQLiteProvider` no `_layout.tsx`
+- [x] Models do cardápio + `CardapioRepository` (SQLite)
+- [x] Cardápio, `categoria/[slug]` e Home lendo do banco
 - **Pronto quando:** apagar as listas fixas das telas não muda nada na interface.
 
 ### Etapa 2 — Monte sua pizza + carrinho (3 dias)
-- [ ] `ItemCarrinho`/`ItemProduto`/`ItemPizza` + `PrecoService`
-- [ ] `CarrinhoRepository` (SQLite) com R3
-- [ ] `CarrinhoContext` passa a usar o repositório; **remover o AsyncStorage**
-- [ ] Tela `monte-sua-pizza` (tamanho, massa, sabores, adicionais, observação)
-- [ ] Carrinho mostrando detalhes e taxa
+- [x] `ItemCarrinho`/`ItemProduto`/`ItemPizza` + `PrecoService`
+- [x] `CarrinhoRepository` (SQLite) com R3
+- [x] `CarrinhoContext` passa a usar o repositório; **remover o AsyncStorage**
+- [x] Tela `monte-sua-pizza` (tamanho, massa, sabores, adicionais, observação)
+- [x] Carrinho mostrando detalhes e taxa
 - **Pronto quando:** fechar e reabrir o app mantém o carrinho; pizza Grande Calabresa + Portuguesa + borda = R$ 56,00.
 
 ### Etapa 3 — Perfil e endereços (2 dias) · *pode andar junto com a 2*
-- [ ] `PerfilRepository` (perfil + endereços)
-- [ ] Aba Perfil e telas de endereços
+- [x] `PerfilRepository` (perfil + endereços)
+- [x] Aba Perfil e telas de endereços
 - **Pronto quando:** endereço salvo aparece no checkout após reiniciar o app.
 
 ### Etapa 4 — Finalizar pedido (2 dias) · *depende de 2 e 3*
-- [ ] `PedidoRepository.criar` em **uma transação**: pedido + itens + sabores + adicionais (com snapshot) + 1º status + limpa carrinho (hoje: pedido, itens e 1º status já entram juntos; sabores, adicionais e observação ainda vão como texto no item)
-- [ ] Revisão com `Alert.alert` → grava → abre `pedido/[id]`
+- [x] `PedidoRepository.criar` em **uma transação**: pedido + itens + sabores + adicionais (com snapshot) + 1º status + limpa carrinho
+- [x] Revisão com `Alert.alert` → grava → abre `pedido/[id]`
 - **Pronto quando:** um erro no meio (ex.: forçar exceção) não deixa pedido pela metade nem esvazia o carrinho.
 
 ### Etapa 5 — Acompanhamento e histórico (2 dias)

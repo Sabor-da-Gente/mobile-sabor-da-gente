@@ -23,6 +23,8 @@ type CarrinhoContextType = {
   diminuirQuantidade: (id: number) => Promise<void>;
   removerItem: (id: number) => Promise<void>;
   limparCarrinho: () => Promise<void>;
+  /** Relê o banco (ex.: depois que o pedido esvaziou o carrinho). */
+  recarregar: () => Promise<void>;
 };
 
 const CarrinhoContext = createContext<CarrinhoContextType | undefined>(undefined);
@@ -79,6 +81,7 @@ export function CarrinhoProvider({ children }: { children: ReactNode }) {
   );
 
   const limparCarrinho = useCallback(() => executar(() => repo.limpar()), [executar, repo]);
+  const recarregar = useCallback(() => executar(async () => {}), [executar]);
 
   const quantidadeTotal = itens.reduce((soma, item) => soma + item.quantidade, 0);
   const subtotal = itens.reduce((soma, item) => soma + item.subtotal(), 0);
@@ -95,6 +98,7 @@ export function CarrinhoProvider({ children }: { children: ReactNode }) {
         diminuirQuantidade,
         removerItem,
         limparCarrinho,
+        recarregar,
       }}
     >
       {children}

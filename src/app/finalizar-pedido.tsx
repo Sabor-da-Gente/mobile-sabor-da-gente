@@ -55,7 +55,7 @@ export default function FinalizarPedidoScreen() {
 }
 
 function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: Endereco[] }) {
-  const { itens, subtotal, limparCarrinho } = useCarrinho();
+  const { itens, subtotal, recarregar: recarregarCarrinho } = useCarrinho();
   const pedidoRepo = usePedidoRepository();
   const perfilRepo = usePerfilRepository();
 
@@ -141,35 +141,35 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
     setEnviando(true);
 
     try {
-      const { pedido, enviado } = await criarPedido(pedidoRepo, {
-        clienteNome: nome.trim(),
-        telefone: formatarTelefone(telefone),
-        tipoEntrega,
-        enderecoId: tipoEntrega === 'entrega' && endereco ? endereco.id : null,
-        endereco: tipoEntrega === 'entrega' && endereco ? endereco.resumo() : '',
-        pagamento,
-        trocoParaCentavos,
-        // Até a Etapa 4 o pedido guarda massa, adicionais e observação no nome do item.
-        itens: itens.map((item) => ({
-          nome: [item.nome, ...item.extras(), ...(item.observacao ? [`Obs.: ${item.observacao}`] : [])].join(' · '),
-          sabores: item.sabores,
-          precoCentavos: item.precoUnitario(),
-          quantidade: item.quantidade,
-        })),
-        subtotalCentavos: subtotal,
-        taxaEntregaCentavos: taxaEntrega,
-        totalCentavos: total,
-      });
+      const { pedido, enviado } = await criarPedido(
+        pedidoRepo,
+        {
+          clienteNome: nome.trim(),
+          telefone: formatarTelefone(telefone),
+          tipoEntrega,
+          enderecoId: tipoEntrega === 'entrega' && endereco ? endereco.id : null,
+          endereco: tipoEntrega === 'entrega' && endereco ? endereco.resumo() : '',
+          pagamento,
+          trocoParaCentavos,
+          subtotalCentavos: subtotal,
+          taxaEntregaCentavos: taxaEntrega,
+          totalCentavos: total,
+        },
+        itens,
+      );
 
-      await limparCarrinho();
+      // O repositório já esvaziou o carrinho no banco; aqui só atualiza a tela.
+      await recarregarCarrinho();
 
       // Primeiro pedido (ou dados mudaram): guarda para os próximos.
       if (perfil?.nome !== nome.trim() || perfil?.telefone !== formatarTelefone(telefone)) {
-        await perfilRepo.salvarPerfil({
-          nome: nome.trim(),
-          telefone: formatarTelefone(telefone),
-          email: perfil?.email ?? null,
-        });
+        await perfilRepo
+          .salvarPerfil({
+            nome: nome.trim(),
+            telefone: formatarTelefone(telefone),
+            email: perfil?.email ?? null,
+          })
+          .catch((e) => console.error('Erro ao salvar perfil:', e));
       }
 
       avisar(
@@ -179,10 +179,20 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
           : 'Seu pedido foi registrado.',
       );
 
-      router.replace('/cardapio');
+      // Fecha carrinho e checkout e abre o pedido: o "Voltar" do detalhe não cai no checkout.
+      const detalhe = { pathname: '/pedido/[id]', params: { id: String(pedido.id) } } as const;
+      if (router.canDismiss()) {
+        router.dismissAll();
+        router.push(detalhe);
+      } else {
+        router.replace(detalhe);
+      }
     } catch (erro) {
       console.error('Erro ao criar pedido:', erro);
-      avisar('Erro ao salvar', 'Não foi possível salvar o pedido. Tente novamente.');
+      avisar(
+        'Erro ao salvar',
+        'Não foi possível salvar o pedido. Nada foi cobrado e seu carrinho continua igual. Tente novamente.',
+      );
     } finally {
       setEnviando(false);
     }
