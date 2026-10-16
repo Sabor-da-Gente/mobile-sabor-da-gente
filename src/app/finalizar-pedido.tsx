@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,27 +11,66 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useCarrinho } from '@/context/CarrinhoContext';
-import { usePedidoRepository } from '@/hooks/use-repositorios';
+import { useConsultaAoFocar } from '@/hooks/use-consulta';
+import { usePedidoRepository, usePerfilRepository } from '@/hooks/use-repositorios';
+import type { Endereco, Perfil } from '@/models/Perfil';
 import { calcularTotais } from '@/services/PrecoService';
 import { criarPedido } from '@/services/pedidoService';
 import type { FormaPagamento, TipoEntrega } from '@/types';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos, lerCentavos } from '@/utils/dinheiro';
+import { formatarTelefone, telefoneValido } from '@/utils/validacao';
 
 export default function FinalizarPedidoScreen() {
+  const perfilRepo = usePerfilRepository();
+  // Recarrega ao voltar do cadastro de endereço.
+  const carregar = useCallback(async () => {
+    const [perfil, enderecos] = await Promise.all([
+      perfilRepo.buscarPerfil(),
+      perfilRepo.listarEnderecos(),
+    ]);
+    return { perfil, enderecos };
+  }, [perfilRepo]);
+  const { dados, carregando, erro } = useConsultaAoFocar(carregar);
+
+  if (carregando && !dados) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Carregando />
+      </SafeAreaView>
+    );
+  }
+
+  if (erro || !dados) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErroTela erro={erro} />
+      </SafeAreaView>
+    );
+  }
+
+  return <Checkout perfil={dados.perfil} enderecos={dados.enderecos} />;
+}
+
+function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: Endereco[] }) {
   const { itens, subtotal, limparCarrinho } = useCarrinho();
   const pedidoRepo = usePedidoRepository();
+  const perfilRepo = usePerfilRepository();
 
-  const [nome, setNome] = useState('');
-  const [telefone, setTelefone] = useState('');
+  const [nome, setNome] = useState(perfil?.nome ?? '');
+  const [telefone, setTelefone] = useState(perfil?.telefone ?? '');
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>('entrega');
-  const [endereco, setEndereco] = useState('');
+  const [enderecoId, setEnderecoId] = useState<number | null>(null);
   const [pagamento, setPagamento] = useState<FormaPagamento>('Pix');
   const [troco, setTroco] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   const { taxaEntrega, total } = calcularTotais(subtotal, tipoEntrega);
+  // Sem escolha (ou se o escolhido foi removido), vale o principal.
+  const endereco =
+    enderecos.find((e) => e.id === enderecoId) ?? enderecos.find((e) => e.principal) ?? enderecos[0];
 
   async function confirmarPedido() {
     if (itens.length === 0) {
@@ -44,8 +83,13 @@ export default function FinalizarPedidoScreen() {
       return;
     }
 
-    if (tipoEntrega === 'entrega' && !endereco.trim()) {
-      avisar('Endereço obrigatório', 'Informe o endereço para entrega.');
+    if (!telefoneValido(telefone)) {
+      avisar('Telefone inválido', 'Informe o telefone com DDD, por exemplo (83) 99999-9999.');
+      return;
+    }
+
+    if (tipoEntrega === 'entrega' && !endereco) {
+      avisar('Endereço obrigatório', 'Cadastre um endereço para a entrega.');
       return;
     }
 
@@ -68,12 +112,12 @@ export default function FinalizarPedidoScreen() {
 
     const destino =
       tipoEntrega === 'entrega'
-        ? `Entrega: ${endereco.trim()}`
+        ? `Entrega: ${endereco?.resumo()}`
         : 'Retirada no estabelecimento';
 
     const resumo =
       `Cliente: ${nome.trim()}\n` +
-      `Telefone: ${telefone.trim()}\n` +
+      `Telefone: ${formatarTelefone(telefone)}\n` +
       `${destino}\n` +
       `Pagamento: ${pagamento}\n` +
       (trocoParaCentavos !== null
@@ -99,9 +143,10 @@ export default function FinalizarPedidoScreen() {
     try {
       const { pedido, enviado } = await criarPedido(pedidoRepo, {
         clienteNome: nome.trim(),
-        telefone: telefone.trim(),
+        telefone: formatarTelefone(telefone),
         tipoEntrega,
-        endereco: tipoEntrega === 'entrega' ? endereco.trim() : '',
+        enderecoId: tipoEntrega === 'entrega' && endereco ? endereco.id : null,
+        endereco: tipoEntrega === 'entrega' && endereco ? endereco.resumo() : '',
         pagamento,
         trocoParaCentavos,
         // Até a Etapa 4 o pedido guarda massa, adicionais e observação no nome do item.
@@ -117,6 +162,15 @@ export default function FinalizarPedidoScreen() {
       });
 
       await limparCarrinho();
+
+      // Primeiro pedido (ou dados mudaram): guarda para os próximos.
+      if (perfil?.nome !== nome.trim() || perfil?.telefone !== formatarTelefone(telefone)) {
+        await perfilRepo.salvarPerfil({
+          nome: nome.trim(),
+          telefone: formatarTelefone(telefone),
+          email: perfil?.email ?? null,
+        });
+      }
 
       avisar(
         `Pedido #${pedido.numero} confirmado!`,
@@ -174,6 +228,10 @@ export default function FinalizarPedidoScreen() {
           <Text style={styles.sectionTitle}>
             1. Dados do cliente
           </Text>
+
+          {!perfil && (
+            <Text style={styles.hint}>Seus dados ficam salvos para os próximos pedidos.</Text>
+          )}
 
           <Text style={styles.label}>Nome completo *</Text>
 
@@ -234,18 +292,33 @@ export default function FinalizarPedidoScreen() {
 
           {tipoEntrega === 'entrega' && (
             <>
-              <Text style={styles.label}>
-                Endereço completo *
-              </Text>
+              <Text style={styles.label}>Endereço de entrega *</Text>
 
-              <TextInput
-                style={[styles.input, styles.multiline]}
-                placeholder="Rua, número, bairro e complemento"
-                value={endereco}
-                onChangeText={setEndereco}
-                multiline
-                maxLength={250}
-              />
+              {enderecos.map((e) => (
+                <TouchableOpacity
+                  key={e.id}
+                  style={[styles.option, e.id === endereco?.id && styles.optionSelected]}
+                  onPress={() => setEnderecoId(e.id)}
+                >
+                  <View style={styles.addressInfo}>
+                    <Text style={styles.optionText}>{e.titulo}</Text>
+                    <Text style={styles.addressText}>{e.resumo()}</Text>
+                  </View>
+
+                  <Text style={styles.mark}>{e.id === endereco?.id ? '✓' : '○'}</Text>
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity
+                style={styles.newAddressButton}
+                onPress={() =>
+                  router.push({ pathname: '/enderecos/[id]', params: { id: 'novo' } })
+                }
+              >
+                <Text style={styles.newAddressText}>
+                  {enderecos.length === 0 ? '+ Cadastrar endereço' : '+ Novo endereço'}
+                </Text>
+              </TouchableOpacity>
             </>
           )}
         </View>
@@ -412,9 +485,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFCF8',
     color: '#222222',
   },
-  multiline: {
-    minHeight: 78,
-    textAlignVertical: 'top',
+  hint: {
+    fontSize: 13,
+    color: '#777777',
+    marginTop: -6,
+    marginBottom: 4,
+  },
+  addressInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  addressText: {
+    fontSize: 13,
+    color: '#777777',
+    marginTop: 3,
+  },
+  newAddressButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  newAddressText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#8B1E1E',
   },
   option: {
     flexDirection: 'row',

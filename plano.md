@@ -248,14 +248,14 @@ Cada etapa termina com o app rodando, `npx tsc --noEmit` e `npx expo lint` sem e
 - **Pronto quando:** endereço salvo aparece no checkout após reiniciar o app.
 
 ### Etapa 4 — Finalizar pedido (2 dias) · *depende de 2 e 3*
-- [ ] `PedidoRepository.criar` em **uma transação**: pedido + itens + sabores + adicionais (com snapshot) + 1º status + limpa carrinho
+- [ ] `PedidoRepository.criar` em **uma transação**: pedido + itens + sabores + adicionais (com snapshot) + 1º status + limpa carrinho (hoje: pedido, itens e 1º status já entram juntos; sabores, adicionais e observação ainda vão como texto no item)
 - [ ] Revisão com `Alert.alert` → grava → abre `pedido/[id]`
 - **Pronto quando:** um erro no meio (ex.: forçar exceção) não deixa pedido pela metade nem esvazia o carrinho.
 
 ### Etapa 5 — Acompanhamento e histórico (2 dias)
 - [ ] `StatusService` (R6) + tela `pedido/[id]` com linha do tempo
-- [ ] Cancelamento (R7)
-- [ ] Aba Pedidos (histórico)
+- [x] Cancelamento (R7)
+- [x] Aba Pedidos (histórico) — hoje em `/pedidos`, aberta pela Home e pelo Perfil
 - **Pronto quando:** fazer um pedido, fechar o app 2 min e reabrir mostra "Entregue" com todos os horários.
 
 ### Etapa 6 — Favoritos e acabamento (1–2 dias)
@@ -308,7 +308,7 @@ Quando a API do DAW III existir:
 1. Criar `repositories/api/` implementando as **mesmas interfaces** com `fetch` (contrato em `docs/api.md` da API).
 2. Cardápio: a API vira a fonte e o SQLite vira **cópia offline** (atualizada ao abrir o app).
 3. Pedidos: enviados pela API; o SQLite guarda a cópia local para o histórico.
-4. Perfil vira login (`/auth`), com o token no `expo-secure-store`.
+4. Perfil vira login (`/auth`), com o token no `expo-secure-store`. Com a conta, nome, telefone e endereços passam a vir do servidor, e o cliente não precisa mais preenchê-los no aparelho.
 
 Telas, models e services **não mudam**. Só muda qual repositório é usado.
 

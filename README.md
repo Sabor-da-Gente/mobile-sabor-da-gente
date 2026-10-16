@@ -32,7 +32,7 @@ Desenvolver um sistema de pizzaria com:
 
 ### Persistência local
 
-O app funciona **sem internet**. O cardápio, o carrinho e os pedidos ficam num banco **SQLite** no próprio celular (`sabor-da-gente.db`):
+O app funciona **sem internet**. O cardápio, o carrinho, o perfil, os endereços e os pedidos ficam num banco **SQLite** no próprio celular (`sabor-da-gente.db`):
 
 - Na primeira abertura, o app cria as tabelas e carrega o cardápio inicial (`src/database/schema.ts` e `seed.ts`).
 - A versão do banco é controlada por `PRAGMA user_version` (`src/database/migracoes.ts`). Uma mudança no banco vira uma nova migração; nunca se edita uma versão já publicada.
@@ -72,14 +72,15 @@ Use o IP do computador onde a API está rodando. Ele muda de rede para rede, por
 ```text
 src/
 ├── app/            rotas (Expo Router)
-│   ├── (tabs)/     tela inicial
+│   ├── (tabs)/     abas Início e Perfil
 │   ├── categoria/  rota dinâmica /categoria/[id]
 │   ├── cardapio.tsx
 │   ├── monte-sua-pizza.tsx
 │   ├── carrinho.tsx
 │   ├── finalizar-pedido.tsx
 │   ├── pedidos.tsx
-│   └── pedido/     detalhe do pedido /pedido/[id]
+│   ├── pedido/     detalhe do pedido /pedido/[id]
+│   └── enderecos/  lista e cadastro/edição de endereços
 ├── components/     componentes reutilizáveis (tela-categoria, estados de tela)
 ├── constants/      paleta de cores e tema
 ├── context/        CarrinhoContext (estado global do carrinho)
@@ -104,9 +105,10 @@ O esquema completo está em `src/database/schema.ts`. Ele usa os mesmos nomes de
 | Grupo | Tabelas |
 |---|---|
 | Cardápio | `categorias`, `produtos`, `tamanhos`, `massas`, `sabores`, `sabor_precos`, `adicionais` |
+| Cliente | `perfil` (uma linha por aparelho), `enderecos` |
 | Carrinho | `carrinho_itens`, `carrinho_item_sabores`, `carrinho_item_adicionais` |
 | Pedidos | `pedidos`, `itens_pedido`, `pedido_status_historico` |
-| Próximas etapas | `perfil`, `enderecos`, `favoritos`, `itens_pedido_sabores`, `itens_pedido_adicionais` |
+| Próximas etapas | `favoritos`, `itens_pedido_sabores`, `itens_pedido_adicionais` |
 
 O pedido guarda os nomes e os preços dos itens **no momento da compra**, para o histórico não mudar se o cardápio mudar.
 
@@ -154,9 +156,17 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 - Limpar carrinho com confirmação;
 - Salvo no SQLite: os itens continuam após fechar e reabrir o app.
 
+### 👤 Perfil e endereços
+
+- Aba **Perfil**: nome, telefone (com DDD) e e-mail opcional, salvos só no celular, sem senha;
+- **Endereços**: cadastrar, editar, remover e escolher o principal. O primeiro cadastrado já vira o principal; se o principal for removido, outro assume;
+- Validação de telefone, CEP (opcional) e UF.
+
 ### 📦 Finalização do pedido
 
-- Dados do cliente, tipo de recebimento (entrega ou retirada) e forma de pagamento;
+- Nome e telefone já vêm do perfil; no primeiro pedido eles são salvos automaticamente;
+- Entrega em um endereço salvo (o principal vem escolhido) ou cadastro de um novo sem sair do pedido;
+- Tipo de recebimento (entrega ou retirada) e forma de pagamento;
 - Taxa de entrega somada ao total quando o pedido é para entrega;
 - Validação do troco (precisa cobrir o total);
 - Resumo do pedido e confirmação;
@@ -168,11 +178,10 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 
 As etapas estão detalhadas em `plano.md`.
 
-- Perfil e endereços salvos (Etapa 3);
 - Pedido com sabores e adicionais em tabelas próprias, em vez de texto no item (Etapa 4);
-- Acompanhamento do status, histórico e cancelamento de pedidos (Etapa 5);
+- Acompanhamento do status do pedido (Etapa 5);
 - Favoritos (Etapa 6);
-- Validação do formato do telefone;
+- Login e cadastro, junto com a integração com a API do painel;
 - Integração completa com a API do painel administrativo;
 - Tema claro e escuro;
 

@@ -3,7 +3,6 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
-// Abas do app. Novas abas (Cardápio, Pedidos, Perfil) entram nas próximas etapas.
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
@@ -19,6 +18,11 @@ export default function AppTabs() {
           src={require('@/assets/images/tabIcons/home.png')}
           renderingMode="template"
         />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="perfil">
+        <NativeTabs.Trigger.Label>Perfil</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="person.fill" md="person" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
