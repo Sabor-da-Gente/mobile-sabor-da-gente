@@ -44,6 +44,8 @@ type PedidoRow = {
   status: StatusPedidoRow;
   forma_pagamento: FormaPagamentoRow;
   troco_para: number | null;
+  subtotal: number;
+  taxa_entrega: number;
   total: number;
   criado_em: string;
 };
@@ -71,14 +73,15 @@ export class SqlitePedidoRepository implements PedidoRepository {
         `INSERT INTO pedidos
            (cliente_nome, cliente_telefone, tipo_entrega, endereco_entrega,
             forma_pagamento, troco_para, subtotal, taxa_entrega, total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         novo.clienteNome,
         novo.telefone,
         novo.tipoEntrega,
         novo.tipoEntrega === 'entrega' ? novo.endereco : null,
         PAGAMENTO_PARA_BANCO[novo.pagamento],
         novo.pagamento === 'Dinheiro' ? novo.trocoParaCentavos : null,
-        novo.totalCentavos,
+        novo.subtotalCentavos,
+        novo.taxaEntregaCentavos,
         novo.totalCentavos,
       );
       id = resultado.lastInsertRowId;
@@ -175,6 +178,8 @@ function paraPedido(row: PedidoRow, itens: ItemRow[]): Pedido {
           quantidade: item.quantidade,
         }),
       ),
+    subtotalCentavos: row.subtotal,
+    taxaEntregaCentavos: row.taxa_entrega,
     totalCentavos: row.total,
     status: STATUS_DO_BANCO[row.status],
     criadoEm: row.criado_em,

@@ -6,12 +6,12 @@ export type Categoria = {
   emoji: string;
   descricao: string;
   subtitulo: string;
-  maxSabores: number;
-  nomeItem?: string;
+  /** Pizza abre o "Monte sua pizza" em vez da lista de produtos. */
+  ehPizza: boolean;
 };
 
 export type Produto = {
-  id: string;
+  id: number;
   categoriaId: CategoriaId;
   nome: string;
   descricao: string;
@@ -48,6 +48,8 @@ export type Pedido = {
   pagamento: FormaPagamento;
   trocoParaCentavos: number | null;
   itens: ItemPedido[];
+  subtotalCentavos: number;
+  taxaEntregaCentavos: number;
   totalCentavos: number;
   status: StatusPedido;
   criadoEm: string;

@@ -28,18 +28,15 @@ Desenvolver um sistema de pizzaria com:
 - Expo e Expo Router
 - TypeScript
 - SQLite no aparelho (`expo-sqlite`)
-- AsyncStorage (carrinho, até a Etapa 2)
 - Git e GitHub
 
 ### Persistência local
 
-O app funciona **sem internet**. O cardápio e os pedidos ficam num banco **SQLite** no próprio celular (`sabor-da-gente.db`):
+O app funciona **sem internet**. O cardápio, o carrinho e os pedidos ficam num banco **SQLite** no próprio celular (`sabor-da-gente.db`):
 
 - Na primeira abertura, o app cria as tabelas e carrega o cardápio inicial (`src/database/schema.ts` e `seed.ts`).
 - A versão do banco é controlada por `PRAGMA user_version` (`src/database/migracoes.ts`). Uma mudança no banco vira uma nova migração; nunca se edita uma versão já publicada.
 - Um pedido é gravado numa **transação**: o pedido, os itens e o primeiro status entram juntos, ou nada é gravado.
-
-O carrinho ainda usa o **AsyncStorage**. Ele passa para o SQLite na Etapa 2 (ver `plano.md`).
 
 As telas nunca escrevem SQL: elas usam os **repositórios** (`src/repositories`). Hoje a implementação é a SQLite; quando a API do painel administrativo (DAW3) existir, basta criar uma implementação nova com as mesmas interfaces e trocá-la em `src/hooks/use-repositorios.ts`.
 
@@ -78,17 +75,20 @@ src/
 │   ├── (tabs)/     tela inicial
 │   ├── categoria/  rota dinâmica /categoria/[id]
 │   ├── cardapio.tsx
+│   ├── monte-sua-pizza.tsx
 │   ├── carrinho.tsx
-│   └── finalizar-pedido.tsx
+│   ├── finalizar-pedido.tsx
+│   ├── pedidos.tsx
+│   └── pedido/     detalhe do pedido /pedido/[id]
 ├── components/     componentes reutilizáveis (tela-categoria, estados de tela)
 ├── constants/      paleta de cores e tema
 ├── context/        CarrinhoContext (estado global do carrinho)
 ├── database/       esquema, cardápio inicial e migrações do SQLite
 ├── hooks/          hooks de dados (use-produtos, use-repositorios)
-├── models/         classes do cardápio (Categoria, Produto, Sabor, Tamanho...)
+├── models/         classes do cardápio e do carrinho (Produto, Sabor, ItemPizza...)
 ├── repositories/   interfaces de acesso aos dados
 │   └── sqlite/     implementação com SQLite
-├── services/       regras e conversões usadas pelas telas (cardápio, pedido)
+├── services/       regras de preço (PrecoService) e conversões usadas pelas telas
 ├── types/          tipos compartilhados (Categoria, Produto, Pedido)
 └── utils/          dinheiro, alertas e rotas
 ```
@@ -104,8 +104,9 @@ O esquema completo está em `src/database/schema.ts`. Ele usa os mesmos nomes de
 | Grupo | Tabelas |
 |---|---|
 | Cardápio | `categorias`, `produtos`, `tamanhos`, `massas`, `sabores`, `sabor_precos`, `adicionais` |
+| Carrinho | `carrinho_itens`, `carrinho_item_sabores`, `carrinho_item_adicionais` |
 | Pedidos | `pedidos`, `itens_pedido`, `pedido_status_historico` |
-| Próximas etapas | `perfil`, `enderecos`, `favoritos`, `carrinho_itens` e as tabelas de sabores e adicionais dos itens |
+| Próximas etapas | `perfil`, `enderecos`, `favoritos`, `itens_pedido_sabores`, `itens_pedido_adicionais` |
 
 O pedido guarda os nomes e os preços dos itens **no momento da compra**, para o histórico não mudar se o cardápio mudar.
 
@@ -130,30 +131,33 @@ Categorias: 🍕 Pizzas, 🥟 Esfihas, 🥤 Bebidas, 🎁 Combos e 🍫 Sobremes
 - Indicador de carregamento, mensagem de erro com nova tentativa e aviso quando nada é encontrado;
 - Confirmação ao adicionar um item, com atalho para o carrinho.
 
-### 🍕 Pizzas
+### 🍕 Monte sua pizza
 
-- Seleção de 1 a 2 sabores;
-- Preço calculado pelo sabor de maior valor.
+Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais → observação, com o preço atualizado a cada escolha.
 
-| Sabores | Preço |
+- **Preço** = maior preço entre os sabores no tamanho + acréscimo da massa + adicionais;
+- Até 2 sabores (o limite vem do tamanho), sem repetir;
+- Ao trocar o tamanho, os sabores escolhidos que cabem nele são mantidos.
+
+| Exemplo (Grande) | Preço |
 |---|---:|
 | Calabresa | R$ 45,00 |
-| Frango com Catupiry | R$ 45,00 |
-| Portuguesa | R$ 48,00 |
-| Calabresa + Frango | R$ 45,00 |
 | Calabresa + Portuguesa | R$ 48,00 |
-| Frango + Portuguesa | R$ 48,00 |
+| Calabresa + Portuguesa + borda de catupiry | R$ 56,00 |
 
 ### 🛒 Carrinho
 
 - Adicionar, alterar quantidade e remover itens;
-- Total do pedido;
+- Item igual ao que já está no carrinho soma na mesma linha (ex.: 6 esfihas de carne = 1 linha com quantidade 6);
+- Detalhes de cada pizza: sabores, massa, adicionais e observação;
+- Subtotal, taxa de entrega (R$ 5,00, só para entrega) e total;
 - Limpar carrinho com confirmação;
-- Persistência local: os itens continuam após fechar e reabrir o app.
+- Salvo no SQLite: os itens continuam após fechar e reabrir o app.
 
 ### 📦 Finalização do pedido
 
 - Dados do cliente, tipo de recebimento (entrega ou retirada) e forma de pagamento;
+- Taxa de entrega somada ao total quando o pedido é para entrega;
 - Validação do troco (precisa cobrir o total);
 - Resumo do pedido e confirmação;
 - Pedido salvo no SQLite do celular e, se configurado, enviado à API.
@@ -164,9 +168,8 @@ Categorias: 🍕 Pizzas, 🥟 Esfihas, 🥤 Bebidas, 🎁 Combos e 🍫 Sobremes
 
 As etapas estão detalhadas em `plano.md`.
 
-- Monte sua pizza com tamanho, massa e adicionais, e carrinho no SQLite (Etapa 2);
 - Perfil e endereços salvos (Etapa 3);
-- Taxa de entrega no total do pedido (Etapa 4);
+- Pedido com sabores e adicionais em tabelas próprias, em vez de texto no item (Etapa 4);
 - Acompanhamento do status, histórico e cancelamento de pedidos (Etapa 5);
 - Favoritos (Etapa 6);
 - Validação do formato do telefone;

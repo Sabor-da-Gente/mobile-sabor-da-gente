@@ -1,6 +1,3 @@
-import { useCarrinho } from '@/context/CarrinhoContext';
-import { confirmar } from '@/utils/alerta';
-import { formatarCentavos } from '@/utils/dinheiro';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
@@ -12,6 +9,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useCarrinho } from '@/context/CarrinhoContext';
+import { TAXA_ENTREGA_CENTAVOS } from '@/services/PrecoService';
+import { confirmar } from '@/utils/alerta';
+import { formatarCentavos } from '@/utils/dinheiro';
+
 export default function CarrinhoScreen() {
   const {
     itens,
@@ -20,7 +22,7 @@ export default function CarrinhoScreen() {
     diminuirQuantidade,
     removerItem,
     limparCarrinho,
-    total,
+    subtotal,
   } = useCarrinho();
 
   async function confirmarLimpeza() {
@@ -79,8 +81,14 @@ export default function CarrinhoScreen() {
                         Sabores: {item.sabores.join(' e ')}
                       </Text>
                     )}
+                    {item.extras().length > 0 && (
+                      <Text style={styles.itemDescription}>{item.extras().join(' · ')}</Text>
+                    )}
+                    {item.observacao && (
+                      <Text style={styles.itemDescription}>Obs.: {item.observacao}</Text>
+                    )}
                     <Text style={styles.unitPrice}>
-                      {formatarCentavos(item.precoCentavos)} por unidade
+                      {formatarCentavos(item.precoUnitario())} por unidade
                     </Text>
                   </View>
 
@@ -111,15 +119,28 @@ export default function CarrinhoScreen() {
                   </View>
 
                   <Text style={styles.itemTotal}>
-                    {formatarCentavos(item.precoCentavos * item.quantidade)}
+                    {formatarCentavos(item.subtotal())}
                   </Text>
                 </View>
               </View>
             ))}
 
             <View style={styles.summary}>
-              <Text style={styles.summaryLabel}>Total do pedido</Text>
-              <Text style={styles.total}>{formatarCentavos(total)}</Text>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Subtotal</Text>
+                <Text style={styles.summaryValue}>{formatarCentavos(subtotal)}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Taxa de entrega</Text>
+                <Text style={styles.summaryValue}>{formatarCentavos(TAXA_ENTREGA_CENTAVOS)}</Text>
+              </View>
+              <Text style={styles.summaryHint}>Retirada no estabelecimento não paga taxa.</Text>
+              <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+                <Text style={styles.summaryTotalLabel}>Total com entrega</Text>
+                <Text style={styles.total}>
+                  {formatarCentavos(subtotal + TAXA_ENTREGA_CENTAVOS)}
+                </Text>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -201,13 +222,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginTop: 6,
     marginBottom: 18,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
     borderWidth: 1,
     borderColor: '#F0E3D5',
   },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryLabel: { fontSize: 15, color: '#555555' },
+  summaryValue: { fontSize: 15, fontWeight: '600', color: '#2D2D2D' },
+  summaryHint: { fontSize: 12, color: '#777777' },
+  summaryTotalRow: { marginTop: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F0E3D5' },
+  summaryTotalLabel: { fontSize: 16, fontWeight: 'bold', color: '#2D2D2D' },
   total: { fontSize: 21, fontWeight: 'bold', color: '#8B1E1E' },
   primaryButton: { backgroundColor: '#8B1E1E', padding: 16, borderRadius: 14, alignItems: 'center' },
   primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
