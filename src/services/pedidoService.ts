@@ -1,5 +1,6 @@
 import type { ItemCarrinho } from '@/models/ItemCarrinho';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
+import { atualizarStatus, avancarAgora, finalizado } from '@/services/StatusService';
 import type { NovoPedido, Pedido } from '@/types';
 
 /** Endereço da API do painel (DAW III). Sem ele, o pedido fica só no celular. */
@@ -26,12 +27,25 @@ async function enviarParaApi(pedido: Pedido): Promise<boolean> {
   }
 }
 
-export function listarPedidos(repo: PedidoRepository): Promise<Pedido[]> {
-  return repo.listar();
+/** Lista já com o status em dia (regra R6). */
+export async function listarPedidos(repo: PedidoRepository): Promise<Pedido[]> {
+  const pedidos = await repo.listar();
+  let mudou = false;
+  for (const pedido of pedidos.filter((p) => !finalizado(p))) {
+    mudou = (await atualizarStatus(repo, pedido)) || mudou;
+  }
+  return mudou ? repo.listar() : pedidos;
 }
 
-export function buscarPedido(repo: PedidoRepository, id: number): Promise<Pedido | null> {
-  return repo.buscar(id);
+/** Busca já com o status em dia (regra R6). */
+export async function buscarPedido(repo: PedidoRepository, id: number): Promise<Pedido | null> {
+  const pedido = await repo.buscar(id);
+  if (pedido && (await atualizarStatus(repo, pedido))) return repo.buscar(id);
+  return pedido;
+}
+
+export function avancarStatus(repo: PedidoRepository, pedido: Pedido): Promise<boolean> {
+  return avancarAgora(repo, pedido);
 }
 
 export function cancelarPedido(repo: PedidoRepository, id: number): Promise<boolean> {

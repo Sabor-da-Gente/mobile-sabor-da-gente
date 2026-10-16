@@ -24,8 +24,12 @@ export type StatusPedido =
   | 'recebido'
   | 'em_preparo'
   | 'saiu_para_entrega'
+  | 'pronto_para_retirada'
   | 'entregue'
   | 'cancelado';
+
+/** Uma mudança de status, com o horário em que aconteceu. */
+export type EventoStatus = { status: StatusPedido; em: string };
 
 export type TipoEntrega = 'entrega' | 'retirada';
 
@@ -58,8 +62,10 @@ export type Pedido = {
   taxaEntregaCentavos: number;
   totalCentavos: number;
   status: StatusPedido;
+  /** Da mais antiga para a mais recente; a primeira é `recebido`. */
+  historico: EventoStatus[];
   criadoEm: string;
 };
 
 /** Dados do pedido sem os itens: eles vêm direto do carrinho. */
-export type NovoPedido = Omit<Pedido, 'id' | 'numero' | 'status' | 'criadoEm' | 'itens'>;
+export type NovoPedido = Omit<Pedido, 'id' | 'numero' | 'status' | 'historico' | 'criadoEm' | 'itens'>;

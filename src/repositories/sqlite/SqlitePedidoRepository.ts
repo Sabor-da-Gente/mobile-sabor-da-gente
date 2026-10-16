@@ -2,7 +2,15 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { type ItemCarrinho, ItemPizza, ItemProduto } from '@/models/ItemCarrinho';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
-import type { FormaPagamento, ItemPedido, NovoPedido, Pedido, StatusPedido, TipoEntrega } from '@/types';
+import type {
+  EventoStatus,
+  FormaPagamento,
+  ItemPedido,
+  NovoPedido,
+  Pedido,
+  StatusPedido,
+  TipoEntrega,
+} from '@/types';
 
 type FormaPagamentoRow = 'pix' | 'cartao' | 'dinheiro';
 
@@ -31,10 +39,14 @@ const STATUS_DO_BANCO: Record<StatusPedidoRow, StatusPedido> = {
   realizado: 'recebido',
   em_preparacao: 'em_preparo',
   saiu_para_entrega: 'saiu_para_entrega',
-  pronto_para_retirada: 'saiu_para_entrega',
+  pronto_para_retirada: 'pronto_para_retirada',
   entregue: 'entregue',
   cancelado: 'cancelado',
 };
+
+const STATUS_PARA_BANCO = Object.fromEntries(
+  Object.entries(STATUS_DO_BANCO).map(([banco, app]) => [app, banco]),
+) as Record<StatusPedido, StatusPedidoRow>;
 
 type PedidoRow = {
   id: number;
@@ -63,6 +75,8 @@ type ItemRow = {
 };
 
 type NomeRow = { item_id: number; nome: string };
+
+type HistoricoRow = { pedido_id: number; status: StatusPedidoRow; criado_em: string };
 
 const SELECT_ITENS =
   'SELECT id, pedido_id, tipo, descricao, observacao, quantidade, preco_unitario FROM itens_pedido';
@@ -168,7 +182,7 @@ export class SqlitePedidoRepository implements PedidoRepository {
 
   private async montar(rows: PedidoRow[], filtro: string, ...params: number[]): Promise<Pedido[]> {
     const doItem = `WHERE item_id IN (SELECT id FROM itens_pedido ${filtro})`;
-    const [itens, sabores, adicionais] = await Promise.all([
+    const [itens, sabores, adicionais, historico] = await Promise.all([
       this.db.getAllAsync<ItemRow>(`${SELECT_ITENS} ${filtro} ORDER BY id`, ...params),
       // rowid mantém a ordem em que foram escolhidos.
       this.db.getAllAsync<NomeRow>(
@@ -179,8 +193,40 @@ export class SqlitePedidoRepository implements PedidoRepository {
         `SELECT item_id, nome FROM itens_pedido_adicionais ${doItem} ORDER BY rowid`,
         ...params,
       ),
+      this.db.getAllAsync<HistoricoRow>(
+        `SELECT pedido_id, status, criado_em FROM pedido_status_historico ${filtro}
+          ORDER BY criado_em, id`,
+        ...params,
+      ),
     ]);
-    return rows.map((row) => paraPedido(row, itens, sabores, adicionais));
+    return rows.map((row) => paraPedido(row, itens, sabores, adicionais, historico));
+  }
+
+  async registrarStatus(
+    id: number,
+    de: StatusPedido,
+    para: StatusPedido,
+    em: string,
+  ): Promise<boolean> {
+    let mudou = false;
+    await this.db.withTransactionAsync(async () => {
+      const resultado = await this.db.runAsync(
+        'UPDATE pedidos SET status = ? WHERE id = ? AND status = ?',
+        STATUS_PARA_BANCO[para],
+        id,
+        STATUS_PARA_BANCO[de],
+      );
+      mudou = resultado.changes > 0;
+      if (mudou) {
+        await this.db.runAsync(
+          'INSERT INTO pedido_status_historico (pedido_id, status, criado_em) VALUES (?, ?, ?)',
+          id,
+          STATUS_PARA_BANCO[para],
+          em,
+        );
+      }
+    });
+    return mudou;
   }
 
   async cancelar(id: number): Promise<boolean> {
@@ -212,6 +258,7 @@ function paraPedido(
   itens: ItemRow[],
   sabores: NomeRow[],
   adicionais: NomeRow[],
+  historico: HistoricoRow[],
 ): Pedido {
   return {
     id: row.id,
@@ -230,6 +277,9 @@ function paraPedido(
     taxaEntregaCentavos: row.taxa_entrega,
     totalCentavos: row.total,
     status: STATUS_DO_BANCO[row.status],
+    historico: historico
+      .filter((h) => h.pedido_id === row.id)
+      .map((h): EventoStatus => ({ status: STATUS_DO_BANCO[h.status], em: h.criado_em })),
     criadoEm: row.criado_em,
   };
 }

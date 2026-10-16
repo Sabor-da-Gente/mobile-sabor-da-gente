@@ -162,6 +162,15 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 - **Endereços**: cadastrar, editar, remover e escolher o principal. O primeiro cadastrado já vira o principal; se o principal for removido, outro assume;
 - Validação de telefone, CEP (opcional) e UF.
 
+### ⏱️ Acompanhamento do pedido
+
+- Linha do tempo no detalhe do pedido, com o horário de cada etapa: Recebido → Em preparo → Saiu para entrega (ou Pronto para retirada) → Entregue;
+- **Status simulado**, sem servidor: Em preparo 30 s depois do pedido, a etapa seguinte 60 s depois e Entregue mais 60 s depois;
+- O status "alcança" o tempo mesmo com o app fechado: ao reabrir, as etapas que já deveriam ter acontecido aparecem com o horário certo;
+- Com a tela do pedido aberta, atualiza sozinho a cada 5 segundos;
+- Botão **"Avançar status (demo)"** para a apresentação;
+- Cancelar só enquanto o pedido está "Recebido".
+
 ### 📦 Finalização do pedido
 
 - Nome e telefone já vêm do perfil; no primeiro pedido eles são salvos automaticamente;
@@ -180,7 +189,6 @@ Tela própria (`/monte-sua-pizza`): tamanho → massa → sabores → adicionais
 
 As etapas estão detalhadas em `plano.md`.
 
-- Acompanhamento do status do pedido (Etapa 5);
 - Favoritos (Etapa 6);
 - Login e cadastro, junto com a integração com a API do painel;
 - Integração completa com a API do painel administrativo;
