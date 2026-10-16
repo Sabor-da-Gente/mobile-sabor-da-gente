@@ -1,9 +1,7 @@
-import { useCarrinho } from '@/context/CarrinhoContext';
-import { avisar, confirmar } from '@/utils/alerta';
-import { formatarCentavos } from '@/utils/dinheiro';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,9 +10,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-type TipoEntrega = 'entrega' | 'retirada';
-type FormaPagamento = 'Pix' | 'Dinheiro' | 'Cartão';
+import { useCarrinho } from '@/context/CarrinhoContext';
+import { criarPedido } from '@/services/pedidoService';
+import type { FormaPagamento, TipoEntrega } from '@/types';
+import { avisar, confirmar } from '@/utils/alerta';
+import { formatarCentavos } from '@/utils/dinheiro';
 
 export default function FinalizarPedidoScreen() {
   const { itens, total, limparCarrinho } = useCarrinho();
@@ -25,6 +25,7 @@ export default function FinalizarPedidoScreen() {
   const [endereco, setEndereco] = useState('');
   const [pagamento, setPagamento] = useState<FormaPagamento>('Pix');
   const [troco, setTroco] = useState('');
+  const [enviando, setEnviando] = useState(false);
 
   async function confirmarPedido() {
     if (itens.length === 0) {
@@ -42,8 +43,6 @@ export default function FinalizarPedidoScreen() {
       return;
     }
 
-    const numeroPedido = Date.now().toString().slice(-6);
-
     const resumoItens = itens
       .map(
         (item) =>
@@ -60,7 +59,6 @@ export default function FinalizarPedidoScreen() {
         : 'Retirada no estabelecimento';
 
     const resumo =
-      `Pedido #${numeroPedido}\n\n` +
       `Cliente: ${nome.trim()}\n` +
       `Telefone: ${telefone.trim()}\n` +
       `${destino}\n` +
@@ -82,13 +80,41 @@ export default function FinalizarPedidoScreen() {
       return;
     }
 
-    avisar(
-      `Pedido #${numeroPedido} confirmado!`,
-      'Demonstração: nenhum pedido foi enviado à pizzaria e nenhum pagamento foi realizado.',
-    );
+    setEnviando(true);
 
-    limparCarrinho();
-    router.replace('/cardapio');
+    try {
+      const { pedido, enviado } = await criarPedido({
+        clienteNome: nome.trim(),
+        telefone: telefone.trim(),
+        tipoEntrega,
+        endereco: tipoEntrega === 'entrega' ? endereco.trim() : '',
+        pagamento,
+        trocoPara: pagamento === 'Dinheiro' ? troco.trim() : '',
+        itens: itens.map((item) => ({
+          nome: item.nome,
+          sabores: item.sabores,
+          precoCentavos: item.precoCentavos,
+          quantidade: item.quantidade,
+        })),
+        totalCentavos: total,
+      });
+
+      limparCarrinho();
+
+      avisar(
+        `Pedido #${pedido.numero} confirmado!`,
+        enviado
+          ? 'Seu pedido foi enviado para a pizzaria.'
+          : 'Seu pedido foi salvo no celular, mas não foi possível enviá-lo à pizzaria agora.',
+      );
+
+      router.replace('/cardapio');
+    } catch (erro) {
+      console.error('Erro ao criar pedido:', erro);
+      avisar('Erro ao salvar', 'Não foi possível salvar o pedido. Tente novamente.');
+    } finally {
+      setEnviando(false);
+    }
   }
 
   if (itens.length === 0) {
@@ -286,12 +312,17 @@ export default function FinalizarPedidoScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={[styles.primaryButton, enviando && styles.buttonDisabled]}
           onPress={confirmarPedido}
+          disabled={enviando}
         >
-          <Text style={styles.primaryButtonText}>
-            Confirmar pedido
-          </Text>
+          {enviando ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.primaryButtonText}>
+              Confirmar pedido
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -432,5 +463,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  buttonDisabled: {
+    backgroundColor: '#C9B8A6',
   },
 });
