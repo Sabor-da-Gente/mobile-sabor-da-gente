@@ -27,12 +27,21 @@ Desenvolver um sistema de pizzaria com:
 - React Native
 - Expo e Expo Router
 - TypeScript
-- AsyncStorage (persistência local)
+- SQLite no aparelho (`expo-sqlite`)
+- AsyncStorage (carrinho, até a Etapa 2)
 - Git e GitHub
 
 ### Persistência local
 
-O carrinho é salvo no dispositivo com o **AsyncStorage**, e continua lá depois de fechar e reabrir o app. Ele foi escolhido por ser simples, assíncrono, já integrado ao ecossistema Expo e suficiente para o volume de dados do carrinho. O acesso aos dados do cardápio passa por uma camada de serviço (`src/services`), preparada para receber a API do painel administrativo.
+O app funciona **sem internet**. O cardápio e os pedidos ficam num banco **SQLite** no próprio celular (`sabor-da-gente.db`):
+
+- Na primeira abertura, o app cria as tabelas e carrega o cardápio inicial (`src/database/schema.ts` e `seed.ts`).
+- A versão do banco é controlada por `PRAGMA user_version` (`src/database/migracoes.ts`). Uma mudança no banco vira uma nova migração; nunca se edita uma versão já publicada.
+- Um pedido é gravado numa **transação**: o pedido, os itens e o primeiro status entram juntos, ou nada é gravado.
+
+O carrinho ainda usa o **AsyncStorage**. Ele passa para o SQLite na Etapa 2 (ver `plano.md`).
+
+As telas nunca escrevem SQL: elas usam os **repositórios** (`src/repositories`). Hoje a implementação é a SQLite; quando a API do painel administrativo (DAW3) existir, basta criar uma implementação nova com as mesmas interfaces e trocá-la em `src/hooks/use-repositorios.ts`.
 
 ---
 
@@ -49,6 +58,16 @@ npx expo start
 
 Escaneie o QR code com o Expo Go, com o celular na mesma rede Wi-Fi do computador.
 
+**Enviar pedidos para a API (opcional).** Sem configuração, os pedidos ficam só no celular. Para também enviá-los à API do painel, crie um arquivo `.env.local` na raiz (ele não vai para o Git) com o endereço dela e reinicie o `npx expo start`:
+
+```bash
+EXPO_PUBLIC_API_URL=http://192.168.0.10:8080
+```
+
+Use o IP do computador onde a API está rodando. Ele muda de rede para rede, por isso não fica no código.
+
+**Navegador.** Também roda com `npx expo start --web`, mas o SQLite na web ainda está em fase *alpha* no Expo. Para testar e apresentar, use o celular.
+
 ---
 
 ## 🗂️ Estrutura do projeto
@@ -61,27 +80,34 @@ src/
 │   ├── cardapio.tsx
 │   ├── carrinho.tsx
 │   └── finalizar-pedido.tsx
-├── components/     componentes reutilizáveis (tela-categoria)
+├── components/     componentes reutilizáveis (tela-categoria, estados de tela)
 ├── constants/      paleta de cores e tema
-├── context/        CarrinhoContext (estado global e persistência)
-├── data/           cardápio local
-├── hooks/          hooks de dados (use-produtos)
-├── services/       camada de acesso aos dados (cardapioService)
-├── types/          tipos compartilhados (Categoria, Produto)
-└── utils/          formatação de dinheiro e alertas
+├── context/        CarrinhoContext (estado global do carrinho)
+├── database/       esquema, cardápio inicial e migrações do SQLite
+├── hooks/          hooks de dados (use-produtos, use-repositorios)
+├── models/         classes do cardápio (Categoria, Produto, Sabor, Tamanho...)
+├── repositories/   interfaces de acesso aos dados
+│   └── sqlite/     implementação com SQLite
+├── services/       regras e conversões usadas pelas telas (cardápio, pedido)
+├── types/          tipos compartilhados (Categoria, Produto, Pedido)
+└── utils/          dinheiro, alertas e rotas
 ```
 
-As telas não leem `src/data` diretamente: passam por `src/services`, que é o ponto onde a API será conectada.
+Caminho dos dados: **tela → hook → service → repositório → SQLite**.
 
 ---
 
 ## 🧩 Modelo de dados
 
-**Categoria:** id, título, emoji, descrição, subtítulo, máximo de sabores e nome do item.
+O esquema completo está em `src/database/schema.ts`. Ele usa os mesmos nomes de tabelas e colunas do banco da API, para facilitar a integração.
 
-**Produto:** id, categoria, nome, descrição, emoji, preço em centavos e disponibilidade.
+| Grupo | Tabelas |
+|---|---|
+| Cardápio | `categorias`, `produtos`, `tamanhos`, `massas`, `sabores`, `sabor_precos`, `adicionais` |
+| Pedidos | `pedidos`, `itens_pedido`, `pedido_status_historico` |
+| Próximas etapas | `perfil`, `enderecos`, `favoritos`, `carrinho_itens` e as tabelas de sabores e adicionais dos itens |
 
-**Item do carrinho:** id, nome, sabores, preço unitário em centavos e quantidade.
+O pedido guarda os nomes e os preços dos itens **no momento da compra**, para o histórico não mudar se o cardápio mudar.
 
 Os preços são guardados em **centavos** (inteiros), por exemplo `4500` para R$ 45,00, o que evita erros de arredondamento.
 
@@ -93,12 +119,11 @@ Os preços são guardados em **centavos** (inteiros), por exemplo `4500` para R$
 
 - Identidade visual da pizzaria;
 - Acesso ao cardápio;
-- Categorias de produtos geradas a partir da lista do cardápio;
-- Seção de produtos mais pedidos.
+- Categorias e produtos em destaque lidos do banco.
 
 ### 📋 Cardápio e categorias
 
-Categorias: 🍕 Pizzas, 🥟 Esfihas, 🥤 Bebidas e 🍫 Sobremesas, todas na mesma tela reutilizável (`/categoria/[id]`).
+Categorias: 🍕 Pizzas, 🥟 Esfihas, 🥤 Bebidas, 🎁 Combos e 🍫 Sobremesas, todas na mesma tela reutilizável (`/categoria/[id]`). Os dados vêm do banco.
 
 - Busca por nome ou descrição, sem diferenciar acentos;
 - Ordenação por menor preço;
@@ -129,17 +154,24 @@ Categorias: 🍕 Pizzas, 🥟 Esfihas, 🥤 Bebidas e 🍫 Sobremesas, todas na 
 ### 📦 Finalização do pedido
 
 - Dados do cliente, tipo de recebimento (entrega ou retirada) e forma de pagamento;
-- Resumo do pedido e confirmação.
+- Validação do troco (precisa cobrir o total);
+- Resumo do pedido e confirmação;
+- Pedido salvo no SQLite do celular e, se configurado, enviado à API.
 
 ---
 
 ## 🚧 Em desenvolvimento
 
-- Salvar o pedido no dispositivo, com histórico, detalhe, edição e cancelamento;
-- Validação de formato do telefone e do valor do troco;
-- Integração com a API do painel administrativo;
+As etapas estão detalhadas em `plano.md`.
+
+- Monte sua pizza com tamanho, massa e adicionais, e carrinho no SQLite (Etapa 2);
+- Perfil e endereços salvos (Etapa 3);
+- Taxa de entrega no total do pedido (Etapa 4);
+- Acompanhamento do status, histórico e cancelamento de pedidos (Etapa 5);
+- Favoritos (Etapa 6);
+- Validação do formato do telefone;
+- Integração completa com a API do painel administrativo;
 - Tema claro e escuro;
-- Cadastro, login e endereços salvos.
 
 ---
 

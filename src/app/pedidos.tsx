@@ -11,12 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Paleta } from '@/constants/paleta';
+import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { listarPedidos } from '@/services/pedidoService';
 import type { Pedido } from '@/types';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
 
 export default function PedidosScreen() {
+  const pedidoRepo = usePedidoRepository();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -25,14 +27,14 @@ export default function PedidosScreen() {
     setErro(null);
 
     try {
-      setPedidos(await listarPedidos());
+      setPedidos(await listarPedidos(pedidoRepo));
     } catch (e) {
       console.error('Erro ao carregar pedidos:', e);
       setErro('Não foi possível carregar seus pedidos.');
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [pedidoRepo]);
 
   useFocusEffect(
     useCallback(() => {

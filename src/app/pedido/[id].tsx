@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,41 +11,33 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Paleta } from '@/constants/paleta';
+import { useConsulta } from '@/hooks/use-consulta';
+import { usePedidoRepository } from '@/hooks/use-repositorios';
 import {
   buscarPedido,
   cancelarPedido,
   excluirPedido,
 } from '@/services/pedidoService';
-import type { Pedido } from '@/types';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
 
 export default function PedidoDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const pedidoRepo = usePedidoRepository();
 
-  const [pedido, setPedido] = useState<Pedido | undefined>();
-  const [carregando, setCarregando] = useState(true);
   const [processando, setProcessando] = useState(false);
 
   const carregar = useCallback(async () => {
-    if (!id) {
-      setCarregando(false);
-      return;
-    }
-
     try {
-      setPedido(await buscarPedido(id));
+      return await buscarPedido(pedidoRepo, Number(id));
     } catch (erro) {
       console.error('Erro ao carregar pedido:', erro);
-    } finally {
-      setCarregando(false);
+      return null;
     }
-  }, [id]);
-
-  useEffect(() => {
-    carregar();
-  }, [carregar]);
+  }, [pedidoRepo, id]);
+  const { dados, carregando, recarregar } = useConsulta(carregar);
+  const pedido = dados ?? undefined;
 
   async function cancelar() {
     if (!pedido) return;
@@ -62,7 +54,7 @@ export default function PedidoDetalheScreen() {
     setProcessando(true);
 
     try {
-      const cancelado = await cancelarPedido(pedido.id);
+      const cancelado = await cancelarPedido(pedidoRepo, pedido.id);
 
       if (cancelado) {
         avisar('Pedido cancelado', `O pedido #${pedido.numero} foi cancelado.`);
@@ -73,7 +65,7 @@ export default function PedidoDetalheScreen() {
         );
       }
 
-      await carregar();
+      recarregar();
     } catch (erro) {
       console.error('Erro ao cancelar pedido:', erro);
       avisar('Erro', 'Não foi possível cancelar o pedido. Tente novamente.');
@@ -97,7 +89,7 @@ export default function PedidoDetalheScreen() {
     setProcessando(true);
 
     try {
-      await excluirPedido(pedido.id);
+      await excluirPedido(pedidoRepo, pedido.id);
       router.back();
     } catch (erro) {
       console.error('Erro ao excluir pedido:', erro);
@@ -165,8 +157,10 @@ export default function PedidoDetalheScreen() {
         <View style={styles.cartao}>
           <Text style={styles.secao}>Pagamento</Text>
           <Text style={styles.linha}>{pedido.pagamento}</Text>
-          {pedido.pagamento === 'Dinheiro' && pedido.trocoPara !== '' && (
-            <Text style={styles.linha}>Troco para: R$ {pedido.trocoPara}</Text>
+          {pedido.trocoParaCentavos !== null && (
+            <Text style={styles.linha}>
+              Troco para: {formatarCentavos(pedido.trocoParaCentavos)}
+            </Text>
           )}
         </View>
 

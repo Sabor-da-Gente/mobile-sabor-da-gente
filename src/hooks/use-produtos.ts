@@ -1,35 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
-import { listarProdutos } from '@/services/cardapioService';
-import type { Produto } from '@/types';
+import { useConsulta } from '@/hooks/use-consulta';
+import { useCardapioRepository } from '@/hooks/use-repositorios';
+import { carregarCategoria } from '@/services/cardapioService';
 
 export function useProdutos(categoriaId: string | undefined) {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const repo = useCardapioRepository();
 
   const carregar = useCallback(async () => {
-    if (!categoriaId) {
-      setCarregando(false);
-      return;
-    }
-
-    setCarregando(true);
-    setErro(null);
-
+    if (!categoriaId) return null;
     try {
-      setProdutos(await listarProdutos(categoriaId));
+      return await carregarCategoria(repo, categoriaId);
     } catch (e) {
       console.error('Erro ao carregar produtos:', e);
-      setErro('Não foi possível carregar o cardápio. Tente novamente.');
-    } finally {
-      setCarregando(false);
+      throw e;
     }
-  }, [categoriaId]);
+  }, [repo, categoriaId]);
 
-  useEffect(() => {
-    carregar();
-  }, [carregar]);
+  const { dados, carregando, erro, recarregar } = useConsulta(carregar);
 
-  return { produtos, carregando, erro, recarregar: carregar };
+  return {
+    categoria: dados?.categoria,
+    produtos: dados?.produtos ?? [],
+    carregando,
+    erro: erro ? 'Não foi possível carregar o cardápio. Tente novamente.' : null,
+    recarregar,
+  };
 }

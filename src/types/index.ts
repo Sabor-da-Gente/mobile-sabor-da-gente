@@ -1,4 +1,4 @@
-export type CategoriaId = 'pizzas' | 'esfihas' | 'bebidas' | 'sobremesas';
+export type CategoriaId = string;
 
 export type Categoria = {
   id: CategoriaId;
@@ -39,22 +39,18 @@ export type ItemPedido = {
 };
 
 export type Pedido = {
-  id: string;
+  id: number;
   numero: string;
   clienteNome: string;
   telefone: string;
   tipoEntrega: TipoEntrega;
   endereco: string;
   pagamento: FormaPagamento;
-  trocoPara: string;
+  trocoParaCentavos: number | null;
   itens: ItemPedido[];
   totalCentavos: number;
   status: StatusPedido;
   criadoEm: string;
-  atualizadoEm: string;
 };
 
-export type NovoPedido = Omit<
-  Pedido,
-  'id' | 'numero' | 'status' | 'criadoEm' | 'atualizadoEm'
->;
+export type NovoPedido = Omit<Pedido, 'id' | 'numero' | 'status' | 'criadoEm'>;

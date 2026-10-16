@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Paleta } from '@/constants/paleta';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useProdutos } from '@/hooks/use-produtos';
-import { buscarCategoria } from '@/services/cardapioService';
 import type { Produto } from '@/types';
 import { avisar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
@@ -29,8 +28,7 @@ function normalizar(texto: string): string {
 }
 
 export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined }) {
-  const categoria = buscarCategoria(categoriaId);
-  const { produtos, carregando, erro, recarregar } = useProdutos(categoriaId);
+  const { categoria, produtos, carregando, erro, recarregar } = useProdutos(categoriaId);
   const { adicionarItem, itens } = useCarrinho();
 
   const [busca, setBusca] = useState('');
@@ -75,16 +73,28 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
     0,
   );
 
+  if (carregando && !categoria) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centro}>
+          <ActivityIndicator size="large" color={Paleta.primaria} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!categoria) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centro}>
-          <Text style={styles.mensagemTitulo}>Categoria não encontrada</Text>
+          <Text style={styles.mensagemTitulo}>{erro ?? 'Categoria não encontrada'}</Text>
           <TouchableOpacity
             style={styles.botaoPrimario}
-            onPress={() => router.replace('/cardapio')}
+            onPress={erro ? recarregar : () => router.replace('/cardapio')}
           >
-            <Text style={styles.botaoPrimarioTexto}>Voltar ao cardápio</Text>
+            <Text style={styles.botaoPrimarioTexto}>
+              {erro ? 'Tentar novamente' : 'Voltar ao cardápio'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

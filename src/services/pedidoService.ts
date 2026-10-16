@@ -1,19 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { NovoPedido, Pedido } from '@/types';
 
-const CHAVE_PEDIDOS = '@sabor-da-gente:pedidos:v1';
-const API_URL = 'http://192.168.1.102:8080';
+/** Endereço da API do painel (DAW III). Sem ele, o pedido fica só no celular. */
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const TEMPO_LIMITE_API_MS = 4000;
-
-async function lerPedidos(): Promise<Pedido[]> {
-  const dados = await AsyncStorage.getItem(CHAVE_PEDIDOS);
-  return dados ? JSON.parse(dados) : [];
-}
-
-async function gravarPedidos(pedidos: Pedido[]): Promise<void> {
-  await AsyncStorage.setItem(CHAVE_PEDIDOS, JSON.stringify(pedidos));
-}
 
 async function enviarParaApi(pedido: Pedido): Promise<boolean> {
   const controlador = new AbortController();
@@ -35,62 +25,31 @@ async function enviarParaApi(pedido: Pedido): Promise<boolean> {
   }
 }
 
-export async function listarPedidos(): Promise<Pedido[]> {
-  const pedidos = await lerPedidos();
-
-  return [...pedidos].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+/**
+ * Salva o pedido no celular e, se houver API configurada, tenta enviá-lo.
+ * `enviado` é `undefined` quando não há API.
+ */
+export function listarPedidos(repo: PedidoRepository): Promise<Pedido[]> {
+  return repo.listar();
 }
 
-export async function buscarPedido(id: string): Promise<Pedido | undefined> {
-  const pedidos = await lerPedidos();
+export function buscarPedido(repo: PedidoRepository, id: number): Promise<Pedido | null> {
+  return repo.buscar(id);
+}
 
-  return pedidos.find((pedido) => pedido.id === id);
+export function cancelarPedido(repo: PedidoRepository, id: number): Promise<boolean> {
+  return repo.cancelar(id);
+}
+
+export function excluirPedido(repo: PedidoRepository, id: number): Promise<void> {
+  return repo.excluir(id);
 }
 
 export async function criarPedido(
+  repo: PedidoRepository,
   novo: NovoPedido,
-): Promise<{ pedido: Pedido; enviado: boolean }> {
-  const agora = new Date().toISOString();
-  const marca = Date.now();
-
-  const pedido: Pedido = {
-    ...novo,
-    id: `${marca}-${Math.random().toString(36).slice(2, 8)}`,
-    numero: String(marca).slice(-6),
-    status: 'recebido',
-    criadoEm: agora,
-    atualizadoEm: agora,
-  };
-
-  const pedidos = await lerPedidos();
-  await gravarPedidos([...pedidos, pedido]);
-
-  const enviado = await enviarParaApi(pedido);
-
+): Promise<{ pedido: Pedido; enviado: boolean | undefined }> {
+  const pedido = await repo.criar(novo);
+  const enviado = API_URL ? await enviarParaApi(pedido) : undefined;
   return { pedido, enviado };
-}
-
-export async function cancelarPedido(id: string): Promise<boolean> {
-  const pedidos = await lerPedidos();
-  const alvo = pedidos.find((pedido) => pedido.id === id);
-
-  if (!alvo || alvo.status !== 'recebido') {
-    return false;
-  }
-
-  await gravarPedidos(
-    pedidos.map((pedido) =>
-      pedido.id === id
-        ? { ...pedido, status: 'cancelado', atualizadoEm: new Date().toISOString() }
-        : pedido,
-    ),
-  );
-
-  return true;
-}
-
-export async function excluirPedido(id: string): Promise<void> {
-  const pedidos = await lerPedidos();
-
-  await gravarPedidos(pedidos.filter((pedido) => pedido.id !== id));
 }

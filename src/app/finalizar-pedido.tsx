@@ -10,14 +10,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useCarrinho } from '@/context/CarrinhoContext';
+import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { criarPedido } from '@/services/pedidoService';
 import type { FormaPagamento, TipoEntrega } from '@/types';
 import { avisar, confirmar } from '@/utils/alerta';
-import { formatarCentavos } from '@/utils/dinheiro';
+import { formatarCentavos, lerCentavos } from '@/utils/dinheiro';
 
 export default function FinalizarPedidoScreen() {
   const { itens, total, limparCarrinho } = useCarrinho();
+  const pedidoRepo = usePedidoRepository();
 
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -43,6 +46,19 @@ export default function FinalizarPedidoScreen() {
       return;
     }
 
+    let trocoParaCentavos: number | null = null;
+    if (pagamento === 'Dinheiro' && troco.trim()) {
+      trocoParaCentavos = lerCentavos(troco);
+      if (trocoParaCentavos === null) {
+        avisar('Troco inválido', 'Informe o valor do troco, por exemplo 50,00.');
+        return;
+      }
+      if (trocoParaCentavos < total) {
+        avisar('Troco insuficiente', `O troco precisa ser de pelo menos ${formatarCentavos(total)}.`);
+        return;
+      }
+    }
+
     const resumoItens = itens
       .map(
         (item) =>
@@ -63,8 +79,8 @@ export default function FinalizarPedidoScreen() {
       `Telefone: ${telefone.trim()}\n` +
       `${destino}\n` +
       `Pagamento: ${pagamento}\n` +
-      (pagamento === 'Dinheiro' && troco.trim()
-        ? `Troco para: R$ ${troco.trim()}\n`
+      (trocoParaCentavos !== null
+        ? `Troco para: ${formatarCentavos(trocoParaCentavos)}\n`
         : '') +
       `\nProdutos:\n${resumoItens}\n\n` +
       `Total: ${formatarCentavos(total)}`;
@@ -83,13 +99,13 @@ export default function FinalizarPedidoScreen() {
     setEnviando(true);
 
     try {
-      const { pedido, enviado } = await criarPedido({
+      const { pedido, enviado } = await criarPedido(pedidoRepo, {
         clienteNome: nome.trim(),
         telefone: telefone.trim(),
         tipoEntrega,
         endereco: tipoEntrega === 'entrega' ? endereco.trim() : '',
         pagamento,
-        trocoPara: pagamento === 'Dinheiro' ? troco.trim() : '',
+        trocoParaCentavos,
         itens: itens.map((item) => ({
           nome: item.nome,
           sabores: item.sabores,
@@ -103,9 +119,9 @@ export default function FinalizarPedidoScreen() {
 
       avisar(
         `Pedido #${pedido.numero} confirmado!`,
-        enviado
-          ? 'Seu pedido foi enviado para a pizzaria.'
-          : 'Seu pedido foi salvo no celular, mas não foi possível enviá-lo à pizzaria agora.',
+        enviado === false
+          ? 'Seu pedido foi salvo no celular, mas não foi possível enviá-lo à pizzaria agora.'
+          : 'Seu pedido foi registrado.',
       );
 
       router.replace('/cardapio');

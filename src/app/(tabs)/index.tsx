@@ -1,19 +1,71 @@
 import { router } from 'expo-router';
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useCarrinho } from '@/context/CarrinhoContext';
-import { listarCategorias } from '@/services/cardapioService';
+import { useConsulta } from '@/hooks/use-consulta';
+import { useCardapioRepository } from '@/hooks/use-repositorios';
+import { formatarCentavos } from '@/utils/dinheiro';
+import { rotaDaCategoria } from '@/utils/rotas';
 
 export default function HomeScreen() {
-  const categorias = listarCategorias();
+  const repo = useCardapioRepository();
   const { itens } = useCarrinho();
-
   const quantidadeCarrinho = itens.reduce((soma, item) => soma + item.quantidade, 0);
+
+  const carregar = useCallback(async () => {
+    const [categorias, destaques, opcoesPizza] = await Promise.all([
+      repo.listarCategorias(),
+      repo.listarDestaques(),
+      repo.buscarOpcoesPizza(),
+    ]);
+
+    // Cartão da pizza: maior tamanho e o menor preço de sabor nele.
+    const maiorTamanho = opcoesPizza.tamanhos.at(-1);
+    const precosNoTamanho = maiorTamanho
+      ? opcoesPizza.sabores
+          .map((s) => s.precoNoTamanho(maiorTamanho.id))
+          .filter((p): p is number => p !== undefined)
+      : [];
+    const pizza = maiorTamanho && precosNoTamanho.length > 0
+      ? {
+          titulo: `Pizza ${maiorTamanho.nome}`,
+          descricao: maiorTamanho.maxSabores > 1
+            ? `Escolha até ${maiorTamanho.maxSabores} sabores`
+            : 'Escolha seu sabor',
+          aPartirDe: Math.min(...precosNoTamanho),
+        }
+      : undefined;
+
+    return { categorias, produtosDestaque: destaques.produtos, pizza };
+  }, [repo]);
+  const { dados, carregando, erro } = useConsulta(carregar);
+
+  if (carregando) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Carregando />
+      </SafeAreaView>
+    );
+  }
+
+  if (erro || !dados) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErroTela erro={erro} />
+      </SafeAreaView>
+    );
+  }
+
+  const { categorias, produtosDestaque, pizza } = dados;
+  const categoriaPizza = categorias.find((c) => c.ehPizza);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {/* Cabeçalho */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Olá! 👋</Text>
@@ -41,6 +93,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Destaque */}
         <View style={styles.highlight}>
           <Text style={styles.highlightTitle}>
             Seu sabor favorito está aqui! 🍕
@@ -67,6 +120,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Categorias */}
         <Text style={styles.sectionTitle}>Categorias</Text>
 
         <View style={styles.categories}>
@@ -74,36 +128,59 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={categoria.id}
               style={styles.category}
-              onPress={() => router.push(`/categoria/${categoria.id}`)}
+              onPress={() => router.push(rotaDaCategoria(categoria))}
             >
-              <Text style={styles.categoryIcon}>{categoria.emoji}</Text>
-              <Text style={styles.categoryText}>{categoria.titulo}</Text>
+              <Text style={styles.categoryIcon}>{categoria.icone}</Text>
+              <Text style={styles.categoryText}>{categoria.nome}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
+        {/* Mais pedidos */}
         <Text style={styles.sectionTitle}>Mais pedidos</Text>
 
-        <TouchableOpacity
-          style={styles.productCard}
-          onPress={() => router.push('/categoria/pizzas')}
-        >
-          <View style={styles.productIcon}>
-            <Text style={styles.productEmoji}>🍕</Text>
-          </View>
+        {pizza && categoriaPizza && (
+          <TouchableOpacity
+            style={styles.productCard}
+            onPress={() => router.push(rotaDaCategoria(categoriaPizza))}
+          >
+            <View style={styles.productIcon}>
+              <Text style={styles.productEmoji}>{categoriaPizza.icone}</Text>
+            </View>
 
-          <View style={styles.productInfo}>
-            <Text style={styles.productName}>Pizzas Grandes</Text>
+            <View style={styles.productInfo}>
+              <Text style={styles.productName}>{pizza.titulo}</Text>
+              <Text style={styles.productDescription}>{pizza.descricao}</Text>
+              <Text style={styles.productPrice}>
+                A partir de {formatarCentavos(pizza.aPartirDe)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
-            <Text style={styles.productDescription}>
-              Escolha 1 ou 2 sabores
-            </Text>
+        {produtosDestaque.map((produto) => {
+          const categoria = categorias.find((c) => c.id === produto.categoriaId);
+          if (!categoria) return null;
+          return (
+            <TouchableOpacity
+              key={produto.id}
+              style={styles.productCard}
+              onPress={() => router.push(rotaDaCategoria(categoria))}
+            >
+              <View style={styles.productIcon}>
+                <Text style={styles.productEmoji}>{categoria.icone}</Text>
+              </View>
 
-            <Text style={styles.productPrice}>
-              A partir de R$ 45,00
-            </Text>
-          </View>
-        </TouchableOpacity>
+              <View style={styles.productInfo}>
+                <Text style={styles.productName}>{produto.nome}</Text>
+                {produto.descricao !== '' && (
+                  <Text style={styles.productDescription}>{produto.descricao}</Text>
+                )}
+                <Text style={styles.productPrice}>{formatarCentavos(produto.preco)}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -113,6 +190,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF8F0',
+  },
+
+  content: {
+    paddingBottom: 16,
   },
 
   header: {
@@ -285,7 +366,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 20,
-    marginBottom: 30,
+    marginBottom: 14,
     padding: 16,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',

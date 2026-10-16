@@ -1,9 +1,11 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { SQLiteProvider } from 'expo-sqlite';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { CarrinhoProvider } from '@/context/CarrinhoContext';
+import { migrar, NOME_BANCO } from '@/database/migracoes';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -12,12 +14,15 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <CarrinhoProvider>
-        <AnimatedSplashOverlay />
+      {/* Abre o banco e roda as migrações antes de mostrar qualquer tela. */}
+      <SQLiteProvider databaseName={NOME_BANCO} onInit={migrar}>
+        <CarrinhoProvider>
+          {/* Todas as telas usam cabeçalho próprio (botão "Voltar" dentro da tela). */}
+          <Stack screenOptions={{ headerShown: false }} />
+        </CarrinhoProvider>
+      </SQLiteProvider>
 
-        {/* Todas as telas usam cabeçalho próprio (botão "Voltar" dentro da tela). */}
-        <Stack screenOptions={{ headerShown: false }} />
-      </CarrinhoProvider>
+      <AnimatedSplashOverlay />
     </ThemeProvider>
   );
 }
