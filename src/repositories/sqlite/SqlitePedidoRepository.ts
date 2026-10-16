@@ -17,13 +17,31 @@ const PAGAMENTO_DO_BANCO: Record<FormaPagamentoRow, FormaPagamento> = {
   dinheiro: 'Dinheiro',
 };
 
+type StatusPedidoRow =
+  | 'realizado'
+  | 'em_preparacao'
+  | 'saiu_para_entrega'
+  | 'pronto_para_retirada'
+  | 'entregue'
+  | 'cancelado';
+
+// O app usa os nomes combinados com a API do admin; o banco, os do plano.
+const STATUS_DO_BANCO: Record<StatusPedidoRow, StatusPedido> = {
+  realizado: 'recebido',
+  em_preparacao: 'em_preparo',
+  saiu_para_entrega: 'saiu_para_entrega',
+  pronto_para_retirada: 'saiu_para_entrega',
+  entregue: 'entregue',
+  cancelado: 'cancelado',
+};
+
 type PedidoRow = {
   id: number;
   cliente_nome: string;
   cliente_telefone: string;
   tipo_entrega: TipoEntrega;
   endereco_entrega: string | null;
-  status: StatusPedido;
+  status: StatusPedidoRow;
   forma_pagamento: FormaPagamentoRow;
   troco_para: number | null;
   total: number;
@@ -130,6 +148,11 @@ export class SqlitePedidoRepository implements PedidoRepository {
     });
     return cancelou;
   }
+
+  async excluir(id: number): Promise<void> {
+    // Itens e histórico saem junto (ON DELETE CASCADE).
+    await this.db.runAsync('DELETE FROM pedidos WHERE id = ?', id);
+  }
 }
 
 function paraPedido(row: PedidoRow, itens: ItemRow[]): Pedido {
@@ -153,7 +176,7 @@ function paraPedido(row: PedidoRow, itens: ItemRow[]): Pedido {
         }),
       ),
     totalCentavos: row.total,
-    status: row.status,
+    status: STATUS_DO_BANCO[row.status],
     criadoEm: row.criado_em,
   };
 }

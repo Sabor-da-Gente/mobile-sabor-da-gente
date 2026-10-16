@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Carregando, ErroTela } from '@/components/estado-tela';
+import { useCarrinho } from '@/context/CarrinhoContext';
 import { useConsulta } from '@/hooks/use-consulta';
 import { useCardapioRepository } from '@/hooks/use-repositorios';
 import { formatarCentavos } from '@/utils/dinheiro';
@@ -11,6 +12,8 @@ import { rotaDaCategoria } from '@/utils/rotas';
 
 export default function HomeScreen() {
   const repo = useCardapioRepository();
+  const { itens } = useCarrinho();
+  const quantidadeCarrinho = itens.reduce((soma, item) => soma + item.quantidade, 0);
 
   const carregar = useCallback(async () => {
     const [categorias, destaques, opcoesPizza] = await Promise.all([
@@ -69,8 +72,24 @@ export default function HomeScreen() {
             <Text style={styles.title}>Sabor da Gente</Text>
           </View>
 
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>🍕</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.cartButton}
+              onPress={() => router.push('/carrinho')}
+              accessibilityLabel="Abrir carrinho"
+            >
+              <Text style={styles.cartIcon}>🛒</Text>
+
+              {quantidadeCarrinho > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{quantidadeCarrinho}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>🍕</Text>
+            </View>
           </View>
         </View>
 
@@ -84,12 +103,21 @@ export default function HomeScreen() {
             Escolha seus sabores, monte seu pedido e aproveite.
           </Text>
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/cardapio')}
-          >
-            <Text style={styles.buttonText}>Ver cardápio</Text>
-          </TouchableOpacity>
+          <View style={styles.buttons}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => router.push('/cardapio')}
+            >
+              <Text style={styles.buttonText}>Ver cardápio</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.buttonOutline}
+              onPress={() => router.push('/pedidos')}
+            >
+              <Text style={styles.buttonOutlineText}>Meus pedidos</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Categorias */}
@@ -189,6 +217,46 @@ const styles = StyleSheet.create({
     color: '#8B1E1E',
   },
 
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  cartButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F0E3D5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cartIcon: {
+    fontSize: 24,
+  },
+
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 5,
+    borderRadius: 11,
+    backgroundColor: '#8B1E1E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cartBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+
   logo: {
     width: 52,
     height: 52,
@@ -223,8 +291,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
+  buttons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+
   button: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 11,
     borderRadius: 12,
@@ -235,6 +308,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: '#5A1717',
+  },
+
+  buttonOutline: {
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F4C542',
+  },
+
+  buttonOutlineText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#F4C542',
   },
 
   sectionTitle: {

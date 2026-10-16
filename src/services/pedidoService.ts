@@ -29,6 +29,22 @@ async function enviarParaApi(pedido: Pedido): Promise<boolean> {
  * Salva o pedido no celular e, se houver API configurada, tenta enviá-lo.
  * `enviado` é `undefined` quando não há API.
  */
+export function listarPedidos(repo: PedidoRepository): Promise<Pedido[]> {
+  return repo.listar();
+}
+
+export function buscarPedido(repo: PedidoRepository, id: number): Promise<Pedido | null> {
+  return repo.buscar(id);
+}
+
+export function cancelarPedido(repo: PedidoRepository, id: number): Promise<boolean> {
+  return repo.cancelar(id);
+}
+
+export function excluirPedido(repo: PedidoRepository, id: number): Promise<void> {
+  return repo.excluir(id);
+}
+
 export async function criarPedido(
   repo: PedidoRepository,
   novo: NovoPedido,

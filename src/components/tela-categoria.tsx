@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,7 +15,7 @@ import { Paleta } from '@/constants/paleta';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useProdutos } from '@/hooks/use-produtos';
 import type { Produto } from '@/types';
-import { avisar, confirmar } from '@/utils/alerta';
+import { avisar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 
 type Ordem = 'padrao' | 'preco';
@@ -34,6 +34,15 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState<Ordem>('padrao');
   const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [banner, setBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+
+    const cronometro = setTimeout(() => setBanner(null), 4000);
+
+    return () => clearTimeout(cronometro);
+  }, [banner]);
 
   const combinaSabores = (categoria?.maxSabores ?? 1) > 1;
 
@@ -92,19 +101,6 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
     );
   }
 
-  async function perguntarVerCarrinho(titulo: string, mensagem: string) {
-    const verCarrinho = await confirmar(
-      titulo,
-      mensagem,
-      'Ver carrinho',
-      'Continuar escolhendo',
-    );
-
-    if (verCarrinho) {
-      router.push('/carrinho');
-    }
-  }
-
   function alternarSabor(produto: Produto) {
     if (selecionados.includes(produto.id)) {
       setSelecionados((atuais) => atuais.filter((id) => id !== produto.id));
@@ -137,10 +133,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
     });
 
     setSelecionados([]);
-    perguntarVerCarrinho(
-      'Adicionado ao carrinho!',
-      `${sabores.join(' e ')} foi adicionado ao carrinho.`,
-    );
+    setBanner(`${sabores.join(' e ')} adicionado ao carrinho`);
   }
 
   function adicionarProduto(produto: Produto) {
@@ -150,10 +143,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
       precoCentavos: produto.precoCentavos,
     });
 
-    perguntarVerCarrinho(
-      'Adicionado ao carrinho!',
-      `${produto.nome} foi adicionado por ${formatarCentavos(produto.precoCentavos)}.`,
-    );
+    setBanner(`${produto.nome} adicionado ao carrinho`);
   }
 
   return (
@@ -215,9 +205,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
 
         {combinaSabores && (
           <View style={styles.resumo}>
-            <Text style={styles.resumoTitulo}>
-              Monte sua {categoria.nomeItem?.toLowerCase()}
-            </Text>
+            <Text style={styles.resumoTitulo}>Monte sua {categoria.nomeItem?.toLowerCase()}</Text>
             <Text style={styles.resumoTexto}>
               {selecionados.length} de {categoria.maxSabores} sabores selecionados
             </Text>
@@ -225,9 +213,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
           </View>
         )}
 
-        {carregando && (
-          <ActivityIndicator size="large" color={Paleta.primaria} style={styles.loading} />
-        )}
+        {carregando && <ActivityIndicator size="large" color={Paleta.primaria} style={styles.loading} />}
 
         {!carregando && erro && (
           <View style={styles.centro}>
@@ -242,9 +228,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
           <View style={styles.centro}>
             <Text style={styles.mensagemTitulo}>Nada encontrado</Text>
             <Text style={styles.mensagemTexto}>
-              {busca.trim()
-                ? `Nenhum item corresponde a "${busca.trim()}".`
-                : 'Nenhum item disponível no momento.'}
+              {busca.trim() ? `Nenhum item corresponde a "${busca.trim()}".` : 'Nenhum item disponível no momento.'}
             </Text>
           </View>
         )}
@@ -268,9 +252,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
                 <View style={styles.cartaoInfo}>
                   <Text style={styles.cartaoNome}>{produto.nome}</Text>
                   <Text style={styles.cartaoDescricao}>{produto.descricao}</Text>
-                  <Text style={styles.cartaoPreco}>
-                    {formatarCentavos(produto.precoCentavos)}
-                  </Text>
+                  <Text style={styles.cartaoPreco}>{formatarCentavos(produto.precoCentavos)}</Text>
 
                   {!combinaSabores && (
                     <TouchableOpacity
@@ -293,11 +275,7 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
 
         {combinaSabores && (
           <TouchableOpacity
-            style={[
-              styles.botaoPrimario,
-              styles.botaoLargo,
-              selecionados.length === 0 && styles.botaoDesabilitado,
-            ]}
+            style={[styles.botaoPrimario, styles.botaoLargo, selecionados.length === 0 && styles.botaoDesabilitado]}
             onPress={adicionarCombinado}
           >
             <Text style={styles.botaoPrimarioTexto}>
@@ -313,6 +291,23 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
           <Text style={styles.botaoSecundarioTexto}>Ver meu carrinho 🛒</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {banner && (
+        <View style={styles.banner}>
+          <Text style={styles.bannerTexto} numberOfLines={2}>
+            ✓ {banner}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => {
+              setBanner(null);
+              router.push('/carrinho');
+            }}
+          >
+            <Text style={styles.bannerAcao}>Ver carrinho</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -330,12 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: Paleta.destaque,
   },
   botaoVoltarTexto: { color: Paleta.primaria, fontSize: 15, fontWeight: 'bold' },
-  linhaTitulo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
+  linhaTitulo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   tituloContainer: { flex: 1 },
   titulo: { fontSize: 28, fontWeight: 'bold', color: Paleta.primaria, marginBottom: 6 },
   subtitulo: { fontSize: 16, color: Paleta.textoSecundario },
@@ -378,30 +368,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: Paleta.primaria,
   },
-  resumoTitulo: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Paleta.textoSobrePrimaria,
-    marginBottom: 6,
-  },
+  resumoTitulo: { fontSize: 18, fontWeight: 'bold', color: Paleta.textoSobrePrimaria, marginBottom: 6 },
   resumoTexto: { fontSize: 14, color: '#FFE9D6', marginBottom: 4 },
   resumoTotal: { fontSize: 18, fontWeight: 'bold', color: Paleta.destaque },
 
   loading: { marginVertical: 30 },
   centro: { alignItems: 'center', padding: 24 },
-  mensagemTitulo: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Paleta.texto,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  mensagemTexto: {
-    fontSize: 14,
-    color: Paleta.textoSuave,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  mensagemTitulo: { fontSize: 18, fontWeight: 'bold', color: Paleta.texto, marginBottom: 8, textAlign: 'center' },
+  mensagemTexto: { fontSize: 14, color: Paleta.textoSuave, textAlign: 'center', marginBottom: 16 },
 
   cartao: {
     flexDirection: 'row',
@@ -414,11 +388,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Paleta.borda,
   },
-  cartaoSelecionado: {
-    borderColor: Paleta.primaria,
-    borderWidth: 2,
-    backgroundColor: '#FFF3E6',
-  },
+  cartaoSelecionado: { borderColor: Paleta.primaria, borderWidth: 2, backgroundColor: '#FFF3E6' },
   cartaoIcone: {
     width: 64,
     height: 64,
@@ -476,4 +446,20 @@ const styles = StyleSheet.create({
     borderColor: Paleta.primaria,
   },
   botaoSecundarioTexto: { color: Paleta.primaria, fontSize: 16, fontWeight: 'bold' },
+
+  banner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: Paleta.texto,
+  },
+  bannerTexto: { flex: 1, fontSize: 14, color: Paleta.textoSobrePrimaria },
+  bannerAcao: { fontSize: 14, fontWeight: 'bold', color: Paleta.destaque },
 });

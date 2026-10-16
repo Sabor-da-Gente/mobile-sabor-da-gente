@@ -21,10 +21,9 @@ export type Produto = {
 };
 
 export type StatusPedido =
-  | 'realizado'
-  | 'em_preparacao'
+  | 'recebido'
+  | 'em_preparo'
   | 'saiu_para_entrega'
-  | 'pronto_para_retirada'
   | 'entregue'
   | 'cancelado';
 
