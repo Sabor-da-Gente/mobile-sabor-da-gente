@@ -4,9 +4,11 @@ import { useMemo } from 'react';
 import type { CardapioRepository } from '@/repositories/CardapioRepository';
 import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
+import type { PerfilRepository } from '@/repositories/PerfilRepository';
 import { SqliteCardapioRepository } from '@/repositories/sqlite/SqliteCardapioRepository';
 import { SqliteCarrinhoRepository } from '@/repositories/sqlite/SqliteCarrinhoRepository';
 import { SqlitePedidoRepository } from '@/repositories/sqlite/SqlitePedidoRepository';
+import { SqlitePerfilRepository } from '@/repositories/sqlite/SqlitePerfilRepository';
 
 /** Ponto único de escolha da implementação: quando a API existir, troque aqui. */
 export function useCardapioRepository(): CardapioRepository {
@@ -22,4 +24,9 @@ export function useCarrinhoRepository(): CarrinhoRepository {
 export function usePedidoRepository(): PedidoRepository {
   const db = useSQLiteContext();
   return useMemo(() => new SqlitePedidoRepository(db), [db]);
+}
+
+export function usePerfilRepository(): PerfilRepository {
+  const db = useSQLiteContext();
+  return useMemo(() => new SqlitePerfilRepository(db), [db]);
 }

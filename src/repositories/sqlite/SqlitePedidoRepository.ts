@@ -40,6 +40,7 @@ type PedidoRow = {
   cliente_nome: string;
   cliente_telefone: string;
   tipo_entrega: TipoEntrega;
+  endereco_id: number | null;
   endereco_entrega: string | null;
   status: StatusPedidoRow;
   forma_pagamento: FormaPagamentoRow;
@@ -58,8 +59,8 @@ type ItemRow = {
   preco_unitario: number;
 };
 
-// Até a Etapa 2 o carrinho não guarda IDs de sabores, então os nomes vão como
-// JSON na observação do item em vez de itens_pedido_sabores.
+// Até a Etapa 4 os nomes dos sabores vão como JSON na observação do item,
+// em vez de itens_pedido_sabores.
 
 export class SqlitePedidoRepository implements PedidoRepository {
   constructor(private readonly db: SQLiteDatabase) {}
@@ -71,12 +72,13 @@ export class SqlitePedidoRepository implements PedidoRepository {
     await this.db.withTransactionAsync(async () => {
       const resultado = await this.db.runAsync(
         `INSERT INTO pedidos
-           (cliente_nome, cliente_telefone, tipo_entrega, endereco_entrega,
+           (cliente_nome, cliente_telefone, tipo_entrega, endereco_id, endereco_entrega,
             forma_pagamento, troco_para, subtotal, taxa_entrega, total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         novo.clienteNome,
         novo.telefone,
         novo.tipoEntrega,
+        novo.tipoEntrega === 'entrega' ? novo.enderecoId : null,
         novo.tipoEntrega === 'entrega' ? novo.endereco : null,
         PAGAMENTO_PARA_BANCO[novo.pagamento],
         novo.pagamento === 'Dinheiro' ? novo.trocoParaCentavos : null,
@@ -165,6 +167,7 @@ function paraPedido(row: PedidoRow, itens: ItemRow[]): Pedido {
     clienteNome: row.cliente_nome,
     telefone: row.cliente_telefone,
     tipoEntrega: row.tipo_entrega,
+    enderecoId: row.endereco_id,
     endereco: row.endereco_entrega ?? '',
     pagamento: PAGAMENTO_DO_BANCO[row.forma_pagamento],
     trocoParaCentavos: row.troco_para,

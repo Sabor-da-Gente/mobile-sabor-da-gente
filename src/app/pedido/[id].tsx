@@ -98,7 +98,7 @@ export default function PedidoDetalheScreen() {
     }
   }
 
-  if (carregando) {
+  if (carregando && !pedido) {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator size="large" color={Paleta.primaria} style={styles.loading} />

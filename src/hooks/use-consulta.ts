@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type EstadoConsulta<T> = {
   dados: T | undefined;
@@ -36,10 +37,30 @@ export function useConsulta<T>(consulta: () => Promise<T>): EstadoConsulta<T> & 
     };
   }, [consulta, tentativa]);
 
+  // Mantém os dados atuais na tela enquanto busca de novo.
   const recarregar = useCallback(() => {
-    setEstado({ dados: undefined, carregando: true, erro: undefined });
+    setEstado((atual) => ({ ...atual, carregando: true, erro: undefined }));
     setTentativa((t) => t + 1);
   }, []);
 
   return { ...estado, recarregar };
+}
+
+/** Como `useConsulta`, mas busca de novo sempre que a tela volta a ficar visível. */
+export function useConsultaAoFocar<T>(consulta: () => Promise<T>) {
+  const estado = useConsulta(consulta);
+  const { recarregar } = estado;
+  const primeiraVez = useRef(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (primeiraVez.current) {
+        primeiraVez.current = false;
+        return;
+      }
+      recarregar();
+    }, [recarregar]),
+  );
+
+  return estado;
 }

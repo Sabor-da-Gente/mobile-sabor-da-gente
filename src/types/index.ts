@@ -44,6 +44,8 @@ export type Pedido = {
   clienteNome: string;
   telefone: string;
   tipoEntrega: TipoEntrega;
+  /** Endereço salvo usado na entrega; `endereco` guarda o texto da época. */
+  enderecoId: number | null;
   endereco: string;
   pagamento: FormaPagamento;
   trocoParaCentavos: number | null;
