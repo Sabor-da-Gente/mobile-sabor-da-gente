@@ -1,63 +1,79 @@
 import { router } from 'expo-router';
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Carregando, ErroTela } from '@/components/estado-tela';
+import { useConsulta } from '@/hooks/use-consulta';
+import { useCardapioRepository } from '@/hooks/use-repositorios';
+import type { Categoria } from '@/models/Categoria';
+import { rotaDaCategoria } from '@/utils/rotas';
+
 export default function CardapioScreen() {
+  const repo = useCardapioRepository();
+
+  const carregar = useCallback(async () => {
+    const [categorias, produtos, opcoesPizza] = await Promise.all([
+      repo.listarCategorias(),
+      repo.listarProdutos(),
+      repo.buscarOpcoesPizza(),
+    ]);
+    const totalPorCategoria = new Map<number, number>();
+    for (const p of produtos) {
+      totalPorCategoria.set(p.categoriaId, (totalPorCategoria.get(p.categoriaId) ?? 0) + 1);
+    }
+    const maxSabores = Math.max(0, ...opcoesPizza.tamanhos.map((t) => t.maxSabores));
+    return { categorias, totalPorCategoria, totalSabores: opcoesPizza.sabores.length, maxSabores };
+  }, [repo]);
+  const { dados, carregando, erro } = useConsulta(carregar);
+
+  function descricao(categoria: Categoria): string {
+    if (!dados) return '';
+    if (categoria.ehPizza) {
+      const ate = dados.maxSabores > 1 ? `até ${dados.maxSabores} sabores` : '1 sabor';
+      return `Monte a sua: ${ate} · ${dados.totalSabores} sabores`;
+    }
+    const total = dados.totalPorCategoria.get(categoria.id) ?? 0;
+    return total === 1 ? '1 opção' : `${total} opções`;
+  }
+
+  if (carregando) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Carregando texto="Carregando cardápio..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (erro || !dados) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErroTela erro={erro} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Cardápio 🍕</Text>
 
-          <Text style={styles.subtitle}>
-            Escolha uma categoria
-          </Text>
+          <Text style={styles.subtitle}>Escolha uma categoria</Text>
         </View>
 
         <View style={styles.categories}>
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/pizzas')}
-          >
-            <Text style={styles.icon}>🍕</Text>
-            <Text style={styles.categoryTitle}>Pizzas</Text>
-            <Text style={styles.categoryDescription}>
-              Pizzas grandes e deliciosas
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/esfihas')}
-          >
-            <Text style={styles.icon}>🥟</Text>
-            <Text style={styles.categoryTitle}>Esfihas</Text>
-            <Text style={styles.categoryDescription}>
-              Esfihas para todos os gostos
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/bebidas')}
-          >
-            <Text style={styles.icon}>🥤</Text>
-            <Text style={styles.categoryTitle}>Bebidas</Text>
-            <Text style={styles.categoryDescription}>
-              Refrigerantes e outras bebidas
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.category}
-            onPress={() => router.push('/sobremesas')}
-          >
-            <Text style={styles.icon}>🍫</Text>
-            <Text style={styles.categoryTitle}>Sobremesas</Text>
-            <Text style={styles.categoryDescription}>
-              Para finalizar o pedido
-            </Text>
-          </TouchableOpacity>
+          {dados.categorias.map((categoria) => (
+            <TouchableOpacity
+              key={categoria.id}
+              style={styles.category}
+              onPress={() => router.push(rotaDaCategoria(categoria))}
+            >
+              <Text style={styles.icon}>{categoria.icone}</Text>
+              <Text style={styles.categoryTitle}>{categoria.nome}</Text>
+              <Text style={styles.categoryDescription}>{descricao(categoria)}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>

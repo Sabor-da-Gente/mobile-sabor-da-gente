@@ -1,99 +1,101 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useCarrinho } from '@/context/CarrinhoContext';
-import { formatarPreco } from '@/utils/dinheiro';
+import { useConsulta } from '@/hooks/use-consulta';
+import { useCardapioRepository } from '@/hooks/use-repositorios';
+import type { Sabor, Tamanho } from '@/models/Pizza';
+import { avisar, confirmar } from '@/utils/alerta';
+import { formatarCentavos } from '@/utils/dinheiro';
 
-const sabores = [
-  {
-    nome: 'Calabresa',
-    descricao: 'Molho de tomate, queijo, calabresa e cebola.',
-    preco: 45,
-  },
-  {
-    nome: 'Frango com Catupiry',
-    descricao: 'Molho de tomate, queijo, frango e catupiry.',
-    preco: 45,
-  },
-  {
-    nome: 'Portuguesa',
-    descricao: 'Queijo, presunto, ovo, cebola, tomate e azeitona.',
-    preco: 48,
-  },
-];
-
-
+// Por enquanto usa só o maior tamanho; tamanho, massa e adicionais entram na Etapa 2.
 export default function PizzasScreen() {
-  const [saboresSelecionados, setSaboresSelecionados] = useState<string[]>([]);
-  const { adicionarItem, itens } = useCarrinho();
+  const repo = useCardapioRepository();
+  const carregar = useCallback(() => repo.buscarOpcoesPizza(), [repo]);
+  const { dados, carregando, erro } = useConsulta(carregar);
 
+  if (carregando) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Carregando texto="Carregando sabores..." />
+      </SafeAreaView>
+    );
+  }
+
+  const tamanho = dados?.tamanhos.at(-1);
+  if (erro || !dados || !tamanho) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErroTela erro={erro} titulo={erro ? undefined : 'Nenhum tamanho de pizza cadastrado'} />
+      </SafeAreaView>
+    );
+  }
+
+  const sabores = dados.sabores.filter((s) => s.disponivelNo(tamanho.id));
+  return <EscolherSabores tamanho={tamanho} sabores={sabores} />;
+}
+
+function EscolherSabores({ tamanho, sabores }: { tamanho: Tamanho; sabores: Sabor[] }) {
+  const [selecionados, setSelecionados] = useState<number[]>([]);
+  const { adicionarItem, itens } = useCarrinho();
+  const max = tamanho.maxSabores;
+
+  const preco = (sabor: Sabor) => sabor.precoNoTamanho(tamanho.id) ?? 0;
+  const saboresEscolhidos = sabores.filter((s) => selecionados.includes(s.id));
+
+  // Regra R1: vale o preço do sabor mais caro.
   const precoPizza =
-    saboresSelecionados.length > 0
-      ? Math.max(
-          ...saboresSelecionados.map(
-            (nome) =>
-              sabores.find((sabor) => sabor.nome === nome)?.preco ?? 0
-          )
-        )
-      : 0;
+    saboresEscolhidos.length > 0 ? Math.max(...saboresEscolhidos.map(preco)) : 0;
 
   const quantidadeCarrinho = itens.reduce(
     (soma, item) => soma + item.quantidade,
     0
   );
 
-  function selecionarSabor(nome: string) {
-    if (saboresSelecionados.includes(nome)) {
-      setSaboresSelecionados((atuais) =>
-        atuais.filter((sabor) => sabor !== nome)
-      );
+  function selecionarSabor(id: number) {
+    if (selecionados.includes(id)) {
+      setSelecionados((atuais) => atuais.filter((s) => s !== id));
       return;
     }
 
-    if (saboresSelecionados.length >= 2) {
-      Alert.alert('Limite de sabores', 'Você pode escolher até 2 sabores.');
+    if (selecionados.length >= max) {
+      avisar('Limite de sabores', `Você pode escolher até ${max} sabores.`);
       return;
     }
 
-    setSaboresSelecionados((atuais) => [...atuais, nome]);
+    setSelecionados((atuais) => [...atuais, id]);
   }
 
-  function adicionarPizza() {
-    if (saboresSelecionados.length === 0) {
-      Alert.alert(
-        'Escolha um sabor',
-        'Selecione pelo menos um sabor para continuar.'
-      );
+  async function adicionarPizza() {
+    if (saboresEscolhidos.length === 0) {
+      avisar('Escolha um sabor', 'Selecione pelo menos um sabor para continuar.');
       return;
     }
 
+    const nomes = saboresEscolhidos.map((s) => s.nome);
+    // O carrinho ainda guarda reais (muda na Etapa 2); o banco guarda centavos.
     adicionarItem({
-      nome: 'Pizza Grande',
-      sabores: [...saboresSelecionados],
-      preco: precoPizza,
+      nome: `Pizza ${tamanho.nome}`,
+      sabores: nomes,
+      preco: precoPizza / 100,
     });
+    setSelecionados([]);
 
-    Alert.alert(
+    const verCarrinho = await confirmar(
       'Pizza adicionada!',
-      `${saboresSelecionados.join(' e ')} foi adicionada ao carrinho.`,
-      [
-        { text: 'Continuar escolhendo', style: 'cancel' },
-        {
-          text: 'Ver carrinho',
-          onPress: () => router.push('/carrinho'),
-        },
-      ]
+      `${nomes.join(' e ')} foi adicionada ao carrinho.`,
+      'Ver carrinho',
+      'Continuar escolhendo',
     );
+    if (verCarrinho) router.push('/carrinho');
+  }
 
-    setSaboresSelecionados([]);
+  function voltar() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/cardapio');
   }
 
   return (
@@ -103,15 +105,12 @@ export default function PizzasScreen() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.replace('/cardapio')}
-          >
-            <Text style={styles.backButtonText}>← Voltar ao cardápio</Text>
+          <TouchableOpacity style={styles.backButton} onPress={voltar}>
+            <Text style={styles.backButtonText}>← Voltar</Text>
           </TouchableOpacity>
 
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Pizzas Grandes 🍕</Text>
+            <Text style={styles.title}>Pizza {tamanho.nome} 🍕</Text>
 
             <TouchableOpacity
               style={styles.cartButton}
@@ -123,38 +122,40 @@ export default function PizzasScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.subtitle}>Escolha 1 ou 2 sabores</Text>
+          <Text style={styles.subtitle}>
+            {max > 1 ? `Escolha de 1 a ${max} sabores` : 'Escolha 1 sabor'} · {tamanho.fatias} fatias
+          </Text>
         </View>
 
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Monte sua pizza</Text>
 
           <Text style={styles.infoText}>
-            Você pode escolher até 2 sabores para sua pizza.
+            Com mais de um sabor, vale o preço do sabor mais caro.
           </Text>
 
           <Text style={styles.selectionText}>
-            {saboresSelecionados.length} de 2 sabores selecionados
+            {selecionados.length} de {max} sabores selecionados
           </Text>
 
           <Text style={styles.totalText}>
-            Total: {formatarPreco(precoPizza)}
+            Total: {formatarCentavos(precoPizza)}
           </Text>
         </View>
 
         <Text style={styles.sectionTitle}>Sabores</Text>
 
         {sabores.map((sabor) => {
-          const selecionado = saboresSelecionados.includes(sabor.nome);
+          const selecionado = selecionados.includes(sabor.id);
 
           return (
             <TouchableOpacity
-              key={sabor.nome}
+              key={sabor.id}
               style={[
                 styles.pizzaCard,
                 selecionado && styles.pizzaCardSelected,
               ]}
-              onPress={() => selecionarSabor(sabor.nome)}
+              onPress={() => selecionarSabor(sabor.id)}
             >
               <View style={styles.pizzaIcon}>
                 <Text style={styles.pizzaEmoji}>🍕</Text>
@@ -168,7 +169,7 @@ export default function PizzasScreen() {
                 </Text>
 
                 <Text style={styles.pizzaPrice}>
-                  {formatarPreco(sabor.preco)}
+                  {formatarCentavos(preco(sabor))}
                 </Text>
               </View>
 
@@ -189,12 +190,12 @@ export default function PizzasScreen() {
         <TouchableOpacity
           style={[
             styles.addButton,
-            saboresSelecionados.length === 0 && styles.addButtonDisabled,
+            selecionados.length === 0 && styles.addButtonDisabled,
           ]}
           onPress={adicionarPizza}
         >
           <Text style={styles.addButtonText}>
-            Adicionar ao carrinho · {formatarPreco(precoPizza)}
+            Adicionar ao carrinho · {formatarCentavos(precoPizza)}
           </Text>
         </TouchableOpacity>
 
