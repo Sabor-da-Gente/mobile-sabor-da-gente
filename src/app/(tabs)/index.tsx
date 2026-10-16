@@ -124,6 +124,10 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>Categorias</Text>
 
         <View style={styles.categories}>
+          {categorias.length === 0 && (
+            <Text style={styles.productDescription}>Nenhuma categoria disponível no momento.</Text>
+          )}
+
           {categorias.map((categoria) => (
             <TouchableOpacity
               key={categoria.id}
@@ -137,7 +141,9 @@ export default function HomeScreen() {
         </View>
 
         {/* Mais pedidos */}
-        <Text style={styles.sectionTitle}>Mais pedidos</Text>
+        {(pizza || produtosDestaque.length > 0) && (
+          <Text style={styles.sectionTitle}>Mais pedidos</Text>
+        )}
 
         {pizza && categoriaPizza && (
           <TouchableOpacity

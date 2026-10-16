@@ -3,12 +3,15 @@ import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BotaoFavorito } from '@/components/botao-favorito';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
+import { useFavoritos } from '@/context/FavoritosContext';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
 import type { Endereco, Perfil } from '@/models/Perfil';
 import { avisar } from '@/utils/alerta';
+import { formatarCentavos } from '@/utils/dinheiro';
 import { emailValido, formatarTelefone, telefoneValido } from '@/utils/validacao';
 
 export default function PerfilScreen() {
@@ -49,6 +52,8 @@ export default function PerfilScreen() {
         />
 
         <ResumoEnderecos enderecos={dados.enderecos} />
+
+        <ListaFavoritos />
 
         <TouchableOpacity style={styles.atalho} onPress={() => router.push('/pedidos')}>
           <Text style={styles.atalhoTexto}>📦 Meus pedidos</Text>
@@ -173,6 +178,50 @@ function ResumoEnderecos({ enderecos }: { enderecos: Endereco[] }) {
   );
 }
 
+function ListaFavoritos() {
+  const { favoritos, carregando } = useFavoritos();
+
+  return (
+    <View style={styles.cartao}>
+      <Text style={styles.secao}>Favoritos ♥</Text>
+
+      {carregando && <Text style={styles.enderecoTexto}>Carregando...</Text>}
+
+      {!carregando && favoritos.length === 0 && (
+        <Text style={styles.enderecoTexto}>
+          Toque no ♡ de um produto ou sabor de pizza para guardá-lo aqui.
+        </Text>
+      )}
+
+      {favoritos.map((f) => (
+        <View key={`${f.tipo}-${f.id}`} style={styles.favorito}>
+          <TouchableOpacity
+            style={styles.favoritoInfo}
+            onPress={() =>
+              f.tipo === 'produto'
+                ? router.push({ pathname: '/categoria/[id]', params: { id: f.categoriaSlug } })
+                : router.push({ pathname: '/monte-sua-pizza', params: { sabor: String(f.id) } })
+            }
+          >
+            <Text style={styles.enderecoTitulo}>
+              {f.tipo === 'produto' ? f.icone : '🍕'} {f.nome}
+            </Text>
+            <Text style={styles.enderecoTexto}>
+              {f.tipo === 'produto'
+                ? formatarCentavos(f.preco)
+                : f.aPartirDe !== null
+                  ? `Pizza · a partir de ${formatarCentavos(f.aPartirDe)}`
+                  : 'Pizza'}
+            </Text>
+          </TouchableOpacity>
+
+          <BotaoFavorito alvo={{ tipo: f.tipo, id: f.id }} nome={f.nome} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Paleta.fundo },
   content: { padding: 20, paddingBottom: 110 },
@@ -201,6 +250,14 @@ const styles = StyleSheet.create({
   },
   enderecoTitulo: { fontSize: 16, fontWeight: 'bold', color: Paleta.texto, marginBottom: 4 },
   enderecoTexto: { fontSize: 14, color: Paleta.textoSuave, marginBottom: 4 },
+  favorito: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: Paleta.borda,
+  },
+  favoritoInfo: { flex: 1 },
   botaoPrimario: {
     marginTop: 4,
     padding: 15,

@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ScrollView,
@@ -17,6 +17,7 @@ import { useConsulta } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
 import type { DadosEndereco } from '@/models/Perfil';
 import { avisar } from '@/utils/alerta';
+import { voltarOu } from '@/utils/rotas';
 import { cepValido, formatarCep } from '@/utils/validacao';
 
 /** Cria (`/enderecos/novo`) ou edita (`/enderecos/3`) um endereço. */
@@ -101,7 +102,7 @@ function Formulario({ id, inicial }: { id?: number; inicial?: DadosEndereco }) {
     setSalvando(true);
     try {
       await repo.salvarEndereco(dados, id);
-      router.back();
+      voltarOu('/enderecos');
     } catch (e) {
       console.error('Erro ao salvar endereço:', e);
       avisar('Erro', 'Não foi possível salvar o endereço. Tente novamente.');
@@ -112,7 +113,7 @@ function Formulario({ id, inicial }: { id?: number; inicial?: DadosEndereco }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => voltarOu('/enderecos')}>
           <Text style={styles.voltar}>‹ Voltar</Text>
         </TouchableOpacity>
 

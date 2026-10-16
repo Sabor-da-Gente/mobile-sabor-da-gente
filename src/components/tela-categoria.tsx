@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BarraAdicionado } from '@/components/barra-adicionado';
+import { BotaoFavorito } from '@/components/botao-favorito';
 import { Paleta } from '@/constants/paleta';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useProdutos } from '@/hooks/use-produtos';
@@ -186,6 +187,8 @@ export function TelaCategoria({ categoriaId }: { categoriaId: string | undefined
                   <Text style={styles.botaoAdicionarTexto}>+ Adicionar ao carrinho</Text>
                 </TouchableOpacity>
               </View>
+
+              <BotaoFavorito alvo={{ tipo: 'produto', id: produto.id }} nome={produto.nome} />
             </View>
           ))}
 
@@ -259,7 +262,7 @@ const styles = StyleSheet.create({
 
   cartao: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginHorizontal: 20,
     marginBottom: 12,
     padding: 14,

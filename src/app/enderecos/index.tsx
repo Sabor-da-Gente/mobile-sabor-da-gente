@@ -9,6 +9,7 @@ import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
 import type { Endereco } from '@/models/Perfil';
 import { avisar, confirmar } from '@/utils/alerta';
+import { voltarOu } from '@/utils/rotas';
 
 export default function EnderecosScreen() {
   const repo = usePerfilRepository();
@@ -49,7 +50,7 @@ export default function EnderecosScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => voltarOu('/perfil')}>
           <Text style={styles.voltar}>‹ Voltar</Text>
         </TouchableOpacity>
 

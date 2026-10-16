@@ -259,9 +259,9 @@ Cada etapa termina com o app rodando, `npx tsc --noEmit` e `npx expo lint` sem e
 - **Pronto quando:** fazer um pedido, fechar o app 2 min e meio (30 s + 60 s + 60 s da R6) e reabrir mostra "Entregue" com todos os horários.
 
 ### Etapa 6 — Favoritos e acabamento (1–2 dias)
-- [ ] `FavoritoRepository` + coração em produtos e sabores + lista no Perfil
-- [ ] Estados de carregamento e vazio em todas as listas
-- [ ] Atualizar o README (escopo, como rodar, decisões)
+- [x] `FavoritoRepository` + coração em produtos e sabores + lista no Perfil
+- [x] Estados de carregamento e vazio em todas as listas
+- [x] Atualizar o README (escopo, como rodar, decisões)
 
 ### Divisão sugerida (4 pessoas)
 | Pessoa | Etapas |

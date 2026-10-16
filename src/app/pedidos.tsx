@@ -16,6 +16,7 @@ import { listarPedidos } from '@/services/pedidoService';
 import type { Pedido } from '@/types';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
+import { voltarOu } from '@/utils/rotas';
 
 export default function PedidosScreen() {
   const pedidoRepo = usePedidoRepository();
@@ -45,7 +46,7 @@ export default function PedidosScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => voltarOu('/')}>
           <Text style={styles.voltar}>‹ Voltar</Text>
         </TouchableOpacity>
 

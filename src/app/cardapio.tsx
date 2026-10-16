@@ -67,6 +67,12 @@ export default function CardapioScreen() {
         </View>
 
         <View style={styles.categories}>
+          {dados.categorias.length === 0 && (
+            <Text style={styles.categoryDescription}>
+              O cardápio está vazio no momento. Volte mais tarde.
+            </Text>
+          )}
+
           {dados.categorias.map((categoria) => (
             <TouchableOpacity
               key={categoria.id}
