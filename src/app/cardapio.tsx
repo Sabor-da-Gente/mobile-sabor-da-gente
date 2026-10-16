@@ -12,6 +12,13 @@ export default function CardapioScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.botaoVoltar}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={styles.botaoVoltarTexto}>← Voltar ao início</Text>
+          </TouchableOpacity>
+
           <Text style={styles.title}>Cardápio 🍕</Text>
           <Text style={styles.subtitle}>Escolha uma categoria</Text>
         </View>
@@ -37,6 +44,15 @@ export default function CardapioScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Paleta.fundo },
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  botaoVoltar: {
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+    borderRadius: 10,
+    backgroundColor: Paleta.destaque,
+  },
+  botaoVoltarTexto: { color: Paleta.primaria, fontSize: 15, fontWeight: 'bold' },
   title: { fontSize: 28, fontWeight: 'bold', color: Paleta.primaria, marginBottom: 6 },
   subtitle: { fontSize: 16, color: Paleta.textoSecundario },
   categories: { padding: 20, gap: 14 },
