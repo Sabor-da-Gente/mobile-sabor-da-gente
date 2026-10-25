@@ -51,7 +51,7 @@ export default function PedidosScreen() {
         </TouchableOpacity>
 
         <Text style={styles.titulo}>Meus pedidos 📦</Text>
-        <Text style={styles.subtitulo}>Acompanhe os pedidos feitos neste celular.</Text>
+        <Text style={styles.subtitulo}>Acompanhe os pedidos da sua conta.</Text>
 
         {carregando && (
           <ActivityIndicator size="large" color={Paleta.primaria} style={styles.loading} />

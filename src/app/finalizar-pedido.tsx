@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Carregando, ErroTela } from '@/components/estado-tela';
+import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePedidoRepository, usePerfilRepository } from '@/hooks/use-repositorios';
@@ -35,6 +36,23 @@ export default function FinalizarPedidoScreen() {
     return { perfil, enderecos };
   }, [perfilRepo]);
   const { dados, carregando, erro } = useConsultaAoFocar(carregar);
+  const { user, carregando: carregandoAuth } = useAuth();
+
+  if (!carregandoAuth && !user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.empty}>
+          <Text style={styles.title}>Entre para pedir 🍕</Text>
+          <Text style={styles.description}>
+            Faça login ou crie sua conta para finalizar o pedido e acompanhá-lo.
+          </Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/login')}>
+            <Text style={styles.primaryButtonText}>Entrar ou cadastrar</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (carregando && !dados) {
     return (
@@ -192,7 +210,9 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
       console.error('Erro ao criar pedido:', erro);
       avisar(
         'Erro ao salvar',
-        'Não foi possível salvar o pedido. Nada foi cobrado e seu carrinho continua igual. Tente novamente.',
+        erro instanceof Error && erro.message
+        ? `${erro.message} Seu carrinho continua igual.`
+        : 'Não foi possível salvar o pedido. Nada foi cobrado e seu carrinho continua igual. Tente novamente.',
       );
     } finally {
       setEnviando(false);

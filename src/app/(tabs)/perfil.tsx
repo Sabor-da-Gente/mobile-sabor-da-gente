@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BotaoFavorito } from '@/components/botao-favorito';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
+import { useAuth } from '@/context/AuthContext';
 import { useFavoritos } from '@/context/FavoritosContext';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
@@ -42,7 +43,9 @@ export default function PerfilScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.titulo}>Meu perfil 👤</Text>
-        <Text style={styles.subtitulo}>Seus dados ficam salvos só neste celular.</Text>
+        <Text style={styles.subtitulo}>Seus dados ficam salvos na sua conta.</Text>
+
+        <ContaCard />
 
         {/* key: refaz o formulário quando o perfil salvo muda. */}
         <FormularioPerfil
@@ -70,6 +73,9 @@ function FormularioPerfil({ perfil, onSalvo }: { perfil: Perfil | null; onSalvo:
   const [telefone, setTelefone] = useState(perfil?.telefone ?? '');
   const [email, setEmail] = useState(perfil?.email ?? '');
   const [salvando, setSalvando] = useState(false);
+  const { user } = useAuth();
+
+  if (!user) return null;
 
   async function salvar() {
     if (!nome.trim()) {
@@ -149,6 +155,9 @@ function FormularioPerfil({ perfil, onSalvo }: { perfil: Perfil | null; onSalvo:
 }
 
 function ResumoEnderecos({ enderecos }: { enderecos: Endereco[] }) {
+  const { user } = useAuth();
+  if (!user) return null;
+
   const principal = enderecos.find((e) => e.principal);
 
   return (
@@ -289,3 +298,31 @@ const styles = StyleSheet.create({
   atalhoTexto: { fontSize: 16, fontWeight: 'bold', color: Paleta.texto },
   atalhoSeta: { fontSize: 22, color: Paleta.textoSuave },
 });
+
+function ContaCard() {
+  const { user, sair } = useAuth();
+
+  return (
+    <View style={styles.cartao}>
+      <Text style={styles.secao}>Conta</Text>
+      {user ? (
+        <>
+          <Text style={styles.enderecoTexto}>Você está logado como {user.email}.</Text>
+          <TouchableOpacity
+            style={styles.botaoSecundario}
+            onPress={() => sair().catch(() => avisar('Erro', 'Não foi possível sair. Tente novamente.'))}
+          >
+            <Text style={styles.botaoSecundarioTexto}>Sair da conta</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <Text style={styles.enderecoTexto}>Entre ou cadastre-se para fazer e acompanhar pedidos.</Text>
+          <TouchableOpacity style={styles.botaoPrimario} onPress={() => router.push('/login')}>
+            <Text style={styles.botaoPrimarioTexto}>Entrar ou cadastrar</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  );
+}
