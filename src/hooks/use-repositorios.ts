@@ -8,14 +8,14 @@ import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
 import type { FavoritoRepository } from '@/repositories/FavoritoRepository';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
-import { SqliteCardapioRepository } from '@/repositories/sqlite/SqliteCardapioRepository';
+import { SincronizadoCardapioRepository } from '@/repositories/supabase/SincronizadoCardapioRepository';
 import { SqliteCarrinhoRepository } from '@/repositories/sqlite/SqliteCarrinhoRepository';
 import { SqliteFavoritoRepository } from '@/repositories/sqlite/SqliteFavoritoRepository';
 
 /** Ponto único de escolha da implementação: quando a API existir, troque aqui. */
 export function useCardapioRepository(): CardapioRepository {
   const db = useSQLiteContext();
-  return useMemo(() => new SqliteCardapioRepository(db), [db]);
+  return useMemo(() => new SincronizadoCardapioRepository(db), [db]);
 }
 
 export function useCarrinhoRepository(): CarrinhoRepository {
