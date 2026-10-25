@@ -14,13 +14,8 @@ import { LinhaDoTempo } from '@/components/linha-do-tempo';
 import { Paleta } from '@/constants/paleta';
 import { useConsulta } from '@/hooks/use-consulta';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
-import {
-  avancarStatus,
-  buscarPedido,
-  cancelarPedido,
-  excluirPedido,
-} from '@/services/pedidoService';
-import { finalizado, podeCancelar, proximoStatus } from '@/services/StatusService';
+import { buscarPedido, cancelarPedido } from '@/services/pedidoService';
+import { finalizado, podeCancelar } from '@/services/StatusService';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
@@ -55,19 +50,6 @@ export default function PedidoDetalheScreen() {
     }, [acompanhando, recarregar]),
   );
 
-  async function avancar() {
-    if (!pedido) return;
-    setProcessando(true);
-    try {
-      await avancarStatus(pedidoRepo, pedido);
-      recarregar();
-    } catch (erro) {
-      console.error('Erro ao avançar status:', erro);
-    } finally {
-      setProcessando(false);
-    }
-  }
-
   async function cancelar() {
     if (!pedido) return;
 
@@ -99,30 +81,6 @@ export default function PedidoDetalheScreen() {
       console.error('Erro ao cancelar pedido:', erro);
       avisar('Erro', 'Não foi possível cancelar o pedido. Tente novamente.');
     } finally {
-      setProcessando(false);
-    }
-  }
-
-  async function excluir() {
-    if (!pedido) return;
-
-    const confirmou = await confirmar(
-      'Excluir pedido',
-      `Remover o pedido #${pedido.numero} do histórico do celular?`,
-      'Excluir',
-      'Voltar',
-    );
-
-    if (!confirmou) return;
-
-    setProcessando(true);
-
-    try {
-      await excluirPedido(pedidoRepo, pedido.id);
-      voltar();
-    } catch (erro) {
-      console.error('Erro ao excluir pedido:', erro);
-      avisar('Erro', 'Não foi possível excluir o pedido. Tente novamente.');
       setProcessando(false);
     }
   }
@@ -172,11 +130,6 @@ export default function PedidoDetalheScreen() {
           <LinhaDoTempo pedido={pedido} />
           {acompanhando && (
             <Text style={styles.dica}>Atualiza sozinho a cada 5 segundos.</Text>
-          )}
-          {proximoStatus(pedido) && (
-            <TouchableOpacity onPress={avancar} disabled={processando}>
-              <Text style={styles.botaoDemo}>Avançar status (demo) ›</Text>
-            </TouchableOpacity>
           )}
         </View>
 
@@ -259,13 +212,6 @@ export default function PedidoDetalheScreen() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          style={styles.botaoSecundario}
-          onPress={excluir}
-          disabled={processando}
-        >
-          <Text style={styles.botaoSecundarioTexto}>Excluir do histórico</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
