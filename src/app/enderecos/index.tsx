@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
+import { useAuth } from '@/context/AuthContext';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
 import type { Endereco } from '@/models/Perfil';
@@ -15,6 +16,7 @@ export default function EnderecosScreen() {
   const repo = usePerfilRepository();
   const carregar = useCallback(() => repo.listarEnderecos(), [repo]);
   const { dados: enderecos, carregando, erro, recarregar } = useConsultaAoFocar(carregar);
+  const { user, carregando: carregandoAuth } = useAuth();
 
   async function executar(acao: () => Promise<void>) {
     try {
@@ -29,6 +31,27 @@ export default function EnderecosScreen() {
   async function remover(endereco: Endereco) {
     const confirmou = await confirmar('Remover endereço', `Remover "${endereco.titulo}"?`, 'Remover');
     if (confirmou) await executar(() => repo.removerEndereco(endereco.id));
+  }
+
+  if (!carregandoAuth && !user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <TouchableOpacity onPress={() => voltarOu('/perfil')}>
+            <Text style={styles.voltar}>‹ Voltar</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.titulo}>Meus endereços 📍</Text>
+
+          <View style={styles.vazio}>
+            <Text style={styles.vazioTexto}>Entre na sua conta para cadastrar e ver seus endereços.</Text>
+            <TouchableOpacity onPress={() => router.push('/login')}>
+              <Text style={styles.voltar}>Entrar ou cadastrar</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
   }
 
   if (carregando && !enderecos) {

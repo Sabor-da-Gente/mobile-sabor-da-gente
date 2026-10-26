@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Carregando, ErroTela } from '@/components/estado-tela';
+import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useConsulta } from '@/hooks/use-consulta';
 import { useCardapioRepository } from '@/hooks/use-repositorios';
@@ -13,6 +14,7 @@ import { rotaDaCategoria } from '@/utils/rotas';
 export default function HomeScreen() {
   const repo = useCardapioRepository();
   const { itens } = useCarrinho();
+  const { user, carregando: carregandoAuth } = useAuth();
   const quantidadeCarrinho = itens.reduce((soma, item) => soma + item.quantidade, 0);
 
   const carregar = useCallback(async () => {
@@ -92,6 +94,13 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        {!carregandoAuth && !user && (
+          <TouchableOpacity style={styles.avisoLogin} onPress={() => router.push('/login')}>
+            <Text style={styles.avisoLoginTitulo}>Entre para fazer pedidos</Text>
+            <Text style={styles.avisoLoginTexto}>Toque aqui para entrar ou criar sua conta.</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Destaque */}
         <View style={styles.highlight}>
@@ -200,6 +209,28 @@ const styles = StyleSheet.create({
 
   content: {
     paddingBottom: 16,
+  },
+
+  avisoLogin: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#FFF1D6',
+    borderWidth: 1,
+    borderColor: '#F4C542',
+  },
+
+  avisoLoginTitulo: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#8B1E1E',
+    marginBottom: 2,
+  },
+
+  avisoLoginTexto: {
+    fontSize: 14,
+    color: '#5A1717',
   },
 
   header: {

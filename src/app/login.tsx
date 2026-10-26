@@ -23,6 +23,10 @@ function traduzirErro(mensagem: string): string {
   if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
   if (m.includes('already registered')) return 'Este e-mail já está cadastrado.';
   if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar.';
+  if (m.includes('rate limit')) return 'Muitas tentativas. Espere alguns minutos e tente de novo.';
+  if (m.includes('email address') && m.includes('invalid')) return 'E-mail inválido. Use um e-mail real, por exemplo do Gmail.';
+  if (m.includes('signups not allowed') || m.includes('signup is disabled')) return 'O cadastro está desativado no servidor.';
+  if (m.includes('database error')) return 'Erro ao criar o perfil no servidor. Avise a equipe.';
   if (m.includes('password')) return 'A senha deve ter pelo menos 6 caracteres.';
   if (m.includes('network')) return 'Sem conexão. Tente de novo.';
   return mensagem;
@@ -131,6 +135,27 @@ export default function LoginScreen() {
           <Text style={{ color: cor.suave }}>‹ Voltar</Text>
         </Pressable>
 
+        <View style={estilos.abas}>
+          {(['entrar', 'cadastrar'] as const).map((m) => (
+            <Pressable
+              key={m}
+              style={[
+                estilos.aba,
+                { borderColor: cor.destaque, backgroundColor: modo === m ? cor.destaque : 'transparent' },
+              ]}
+              onPress={() => {
+                setModo(m);
+                setErro('');
+                setAviso('');
+              }}
+            >
+              <Text style={{ color: modo === m ? '#FFFFFF' : cor.destaque, fontWeight: '700' }}>
+                {m === 'entrar' ? 'Entrar' : 'Criar conta'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         <Text style={[estilos.titulo, { color: cor.texto }]}>
           {modo === 'entrar' ? 'Entrar' : 'Criar conta'}
         </Text>
@@ -222,6 +247,8 @@ const estilos = StyleSheet.create({
   botaoTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
   link: { alignItems: 'center', marginTop: 18, padding: 6 },
   voltar: { alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 12 },
+  abas: { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  aba: { flex: 1, borderWidth: 1.5, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
   erro: { color: '#C0392B', marginBottom: 8 },
   aviso: { color: '#1E8449', marginBottom: 8 },
 });
