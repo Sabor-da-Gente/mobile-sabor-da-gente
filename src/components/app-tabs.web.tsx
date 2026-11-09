@@ -1,7 +1,10 @@
 import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps, TabListProps } from 'expo-router/ui';
+import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+
+type PressableRef = ComponentProps<typeof Pressable>['ref'];
 
 const VINHO = '#8B1E1E';
 
@@ -24,9 +27,9 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+export function TabButton({ children, isFocused, ref, ...props }: TabTriggerSlotProps) {
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable {...props} ref={ref as unknown as PressableRef} style={({ pressed }) => pressed && styles.pressed}>
       <View style={[styles.tabButton, isFocused && styles.tabButtonSelected]}>
         <Text style={[styles.tabText, isFocused && styles.tabTextSelected]}>{children}</Text>
       </View>
