@@ -70,24 +70,28 @@ export class SqliteFavoritoRepository implements FavoritoRepository {
     return lista.sort((a, b) => b.ordem - a.ordem).map(({ ordem: _ordem, ...favorito }) => favorito);
   }
 
-  async alternar({ tipo, id }: AlvoFavorito): Promise<boolean> {
-    const coluna = tipo === 'produto' ? 'produto_id' : 'sabor_id';
+  async alternar(alvo: AlvoFavorito): Promise<boolean> {
     let favoritado = false;
     await this.db.withTransactionAsync(async () => {
-      const removido = await this.db.runAsync(
-        `DELETE FROM favoritos WHERE usuario_id IS ? AND ${coluna} = ?`,
-        this.usuarioId,
-        id,
-      );
-      if (removido.changes === 0) {
-        await this.db.runAsync(
-          `INSERT INTO favoritos (usuario_id, ${coluna}) VALUES (?, ?)`,
-          this.usuarioId,
-          id,
-        );
-        favoritado = true;
-      }
+      favoritado = await this.alternarNaTransacao(alvo);
     });
     return favoritado;
+  }
+
+  async alternarNaTransacao({ tipo, id }: AlvoFavorito): Promise<boolean> {
+    const coluna = tipo === 'produto' ? 'produto_id' : 'sabor_id';
+    const removido = await this.db.runAsync(
+      `DELETE FROM favoritos WHERE usuario_id IS ? AND ${coluna} = ?`,
+      this.usuarioId,
+      id,
+    );
+    if (removido.changes > 0) return false;
+
+    await this.db.runAsync(
+      `INSERT INTO favoritos (usuario_id, ${coluna}) VALUES (?, ?)`,
+      this.usuarioId,
+      id,
+    );
+    return true;
   }
 }
