@@ -7,7 +7,7 @@ import { popularCardapio } from './seed';
 
 export const NOME_BANCO = 'sabor-da-gente.db';
 
-export const VERSAO_ATUAL = 3;
+export const VERSAO_ATUAL = 4;
 
 export async function migrar(db: SQLiteDatabase): Promise<void> {
   const linha = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -46,11 +46,13 @@ export async function migrar(db: SQLiteDatabase): Promise<void> {
     versao = await salvarVersao(db, 3);
   }
 
-  // Próximas versões:
-  // if (versao === 3) {
-  //   await db.execAsync('ALTER TABLE ...');
-  //   versao = await salvarVersao(db, 4);
-  // }
+  if (versao === 3) {
+    await db.execAsync(`
+      CREATE TABLE configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
+      INSERT INTO configuracoes (chave, valor) VALUES ('taxa_entrega', '500'), ('regra_preco_pizza', 'maior');
+    `);
+    versao = await salvarVersao(db, 4);
+  }
 
   await db.execAsync('PRAGMA foreign_keys = ON;');
   await db.runAsync("UPDATE fila_sincronizacao SET status = 'pendente' WHERE status = 'enviando'");

@@ -15,9 +15,10 @@ import { AvisoOffline } from '@/components/aviso-offline';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
-import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { useConexao } from '@/hooks/use-conexao';
+import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePedidoRepository, usePerfilRepository } from '@/hooks/use-repositorios';
+import { useTaxaEntrega } from '@/hooks/use-taxa-entrega';
 import type { Endereco, Perfil } from '@/models/Perfil';
 import { calcularTotais } from '@/services/PrecoService';
 import { criarPedido } from '@/services/pedidoService';
@@ -88,13 +89,24 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
   const [troco, setTroco] = useState('');
   const [enviando, setEnviando] = useState(false);
 
-  const { taxaEntrega, total } = calcularTotais(subtotal, tipoEntrega);
+  const taxaConfigurada = useTaxaEntrega();
+  const { taxaEntrega, total } = calcularTotais(subtotal, tipoEntrega, taxaConfigurada);
   const endereco =
     enderecos.find((e) => e.id === enderecoId) ?? enderecos.find((e) => e.principal) ?? enderecos[0];
 
   async function confirmarPedido() {
     if (itens.length === 0) {
       avisar('Carrinho vazio', 'Volte ao cardápio e adicione produtos.');
+      return;
+    }
+
+    const indisponiveis = itens.filter((item) => !item.disponivel);
+    if (indisponiveis.length > 0) {
+      const lista = indisponiveis.map((item) => `${item.nome}: ${item.motivoIndisponivel}`).join('\n');
+      avisar(
+        'Item indisponível',
+        `${lista}\n\nVolte ao carrinho e remova os itens indisponíveis para continuar.`,
+      );
       return;
     }
 

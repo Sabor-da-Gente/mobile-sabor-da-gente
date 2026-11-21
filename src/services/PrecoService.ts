@@ -1,10 +1,8 @@
 import type { Adicional, Massa, Sabor, Tamanho } from '@/models/Pizza';
 import type { TipoEntrega } from '@/types';
 
-/** Regra R4: taxa fixa para entrega; retirada não paga. */
 export const TAXA_ENTREGA_CENTAVOS = 500;
 
-/** Regra R2. Devolve o motivo da pizza ser inválida, ou `null` se estiver tudo certo. */
 export function problemaNosSabores(tamanho: Tamanho, sabores: Sabor[]): string | null {
   if (sabores.length === 0) return 'Escolha pelo menos um sabor.';
   if (sabores.length > tamanho.maxSabores) {
@@ -18,7 +16,6 @@ export function problemaNosSabores(tamanho: Tamanho, sabores: Sabor[]): string |
   return null;
 }
 
-/** Regra R1: maior preço entre os sabores no tamanho + acréscimo da massa + adicionais. */
 export function precoPizza(
   tamanho: Tamanho,
   massa: Massa,
@@ -30,11 +27,15 @@ export function precoPizza(
   return base + massa.acrescimo + adicionais.reduce((soma, a) => soma + a.preco, 0);
 }
 
-export function taxaEntrega(tipo: TipoEntrega): number {
-  return tipo === 'entrega' ? TAXA_ENTREGA_CENTAVOS : 0;
+export function taxaEntrega(tipo: TipoEntrega, taxa: number = TAXA_ENTREGA_CENTAVOS): number {
+  return tipo === 'entrega' ? taxa : 0;
 }
 
-export function calcularTotais(subtotal: number, tipo: TipoEntrega) {
-  const taxa = taxaEntrega(tipo);
+export function calcularTotais(
+  subtotal: number,
+  tipo: TipoEntrega,
+  taxaConfigurada: number = TAXA_ENTREGA_CENTAVOS,
+) {
+  const taxa = taxaEntrega(tipo, taxaConfigurada);
   return { subtotal, taxaEntrega: taxa, total: subtotal + taxa };
 }

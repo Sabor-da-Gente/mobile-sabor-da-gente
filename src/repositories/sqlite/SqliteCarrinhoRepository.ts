@@ -31,38 +31,64 @@ type ItemRow = {
 
 type LigacaoRow = { item_id: number; ref_id: number };
 
+type IdRow = { id: number };
+
 const mesmoConjunto = (a: number[], b: number[]) =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 export class SqliteCarrinhoRepository implements CarrinhoRepository {
   constructor(private readonly db: SQLiteDatabase) {}
 
+  private async buscarInativos() {
+    const ids = async (tabela: string) =>
+      new Set(
+        (await this.db.getAllAsync<IdRow>(`SELECT id FROM ${tabela} WHERE ativo = 0`)).map((r) => r.id),
+      );
+    const [produtos, tamanhos, massas, sabores, adicionais] = await Promise.all([
+      ids('produtos'),
+      ids('tamanhos'),
+      ids('massas'),
+      ids('sabores'),
+      ids('adicionais'),
+    ]);
+    return { produtos, tamanhos, massas, sabores, adicionais };
+  }
+
   async listar(): Promise<ItemCarrinho[]> {
-    // Lê sem filtrar `ativo`: um item que saiu do cardápio continua visível no carrinho.
-    const [itens, produtos, tamanhos, massas, sabores, precos, adicionais, itemSabores, itemAdicionais] =
-      await Promise.all([
-        this.db.getAllAsync<ItemRow>(
-          'SELECT id, tipo, produto_id, tamanho_id, massa_id, quantidade, observacao FROM carrinho_itens ORDER BY id',
-        ),
-        this.db.getAllAsync<ProdutoRow>(
-          `SELECT id, categoria_id, nome, descricao, ingredientes, imagem_url, preco, destaque
-             FROM produtos WHERE id IN (SELECT produto_id FROM carrinho_itens)`,
-        ),
-        this.db.getAllAsync<TamanhoRow>('SELECT id, nome, fatias, max_sabores, ordem FROM tamanhos'),
-        this.db.getAllAsync<MassaRow>('SELECT id, nome, acrescimo FROM massas'),
-        this.db.getAllAsync<SaborRow>(
-          'SELECT id, nome, descricao, ingredientes, imagem_url, destaque FROM sabores',
-        ),
-        this.db.getAllAsync<SaborPrecoRow>('SELECT sabor_id, tamanho_id, preco FROM sabor_precos'),
-        this.db.getAllAsync<AdicionalRow>('SELECT id, nome, preco FROM adicionais'),
-        // rowid mantém a ordem em que os sabores foram escolhidos.
-        this.db.getAllAsync<LigacaoRow>(
-          'SELECT item_id, sabor_id AS ref_id FROM carrinho_item_sabores ORDER BY rowid',
-        ),
-        this.db.getAllAsync<LigacaoRow>(
-          'SELECT item_id, adicional_id AS ref_id FROM carrinho_item_adicionais ORDER BY rowid',
-        ),
-      ]);
+    const [
+      itens,
+      produtos,
+      tamanhos,
+      massas,
+      sabores,
+      precos,
+      adicionais,
+      itemSabores,
+      itemAdicionais,
+      inativos,
+    ] = await Promise.all([
+      this.db.getAllAsync<ItemRow>(
+        'SELECT id, tipo, produto_id, tamanho_id, massa_id, quantidade, observacao FROM carrinho_itens ORDER BY id',
+      ),
+      this.db.getAllAsync<ProdutoRow>(
+        `SELECT id, categoria_id, nome, descricao, ingredientes, imagem_url, preco, destaque
+           FROM produtos WHERE id IN (SELECT produto_id FROM carrinho_itens)`,
+      ),
+      this.db.getAllAsync<TamanhoRow>('SELECT id, nome, fatias, max_sabores, ordem FROM tamanhos'),
+      this.db.getAllAsync<MassaRow>('SELECT id, nome, acrescimo FROM massas'),
+      this.db.getAllAsync<SaborRow>(
+        'SELECT id, nome, descricao, ingredientes, imagem_url, destaque FROM sabores',
+      ),
+      this.db.getAllAsync<SaborPrecoRow>('SELECT sabor_id, tamanho_id, preco FROM sabor_precos'),
+      this.db.getAllAsync<AdicionalRow>('SELECT id, nome, preco FROM adicionais'),
+      this.db.getAllAsync<LigacaoRow>(
+        'SELECT item_id, sabor_id AS ref_id FROM carrinho_item_sabores ORDER BY rowid',
+      ),
+      this.db.getAllAsync<LigacaoRow>(
+        'SELECT item_id, adicional_id AS ref_id FROM carrinho_item_adicionais ORDER BY rowid',
+      ),
+      this.buscarInativos(),
+    ]);
 
     const porId = <T extends { id: number }>(lista: T[]) => new Map(lista.map((x) => [x.id, x]));
     const produtoPorId = porId(produtos.map(Produto.fromRow));
@@ -77,24 +103,38 @@ export class SqliteCarrinhoRepository implements CarrinhoRepository {
         if (row.tipo === 'produto') {
           const produto = produtoPorId.get(row.produto_id!);
           if (!produto) throw new Error(`produto ${row.produto_id} não existe`);
-          resultado.push(new ItemProduto(row.id, row.quantidade, row.observacao, produto));
+          const item = new ItemProduto(row.id, row.quantidade, row.observacao, produto);
+          if (inativos.produtos.has(produto.id)) {
+            item.motivoIndisponivel = `${produto.nome} não está mais disponível.`;
+          }
+          resultado.push(item);
         } else {
           const tamanho = tamanhoPorId.get(row.tamanho_id!);
           const massa = massaPorId.get(row.massa_id!);
           if (!tamanho || !massa) throw new Error('tamanho ou massa não existe');
           const doItem = (ligacoes: LigacaoRow[]) =>
             ligacoes.filter((l) => l.item_id === row.id).map((l) => l.ref_id);
-          resultado.push(
-            new ItemPizza(
-              row.id,
-              row.quantidade,
-              row.observacao,
-              tamanho,
-              massa,
-              doItem(itemSabores).flatMap((id) => saborPorId.get(id) ?? []),
-              doItem(itemAdicionais).flatMap((id) => adicionalPorId.get(id) ?? []),
-            ),
+          const saboresDoItem = doItem(itemSabores).flatMap((id) => saborPorId.get(id) ?? []);
+          const adicionaisDoItem = doItem(itemAdicionais).flatMap((id) => adicionalPorId.get(id) ?? []);
+          const item = new ItemPizza(
+            row.id,
+            row.quantidade,
+            row.observacao,
+            tamanho,
+            massa,
+            saboresDoItem,
+            adicionaisDoItem,
           );
+          const indisponiveis = [
+            ...(inativos.tamanhos.has(tamanho.id) ? [`tamanho ${tamanho.nome}`] : []),
+            ...(inativos.massas.has(massa.id) ? [`massa ${massa.nome}`] : []),
+            ...saboresDoItem.filter((s) => inativos.sabores.has(s.id)).map((s) => s.nome),
+            ...adicionaisDoItem.filter((a) => inativos.adicionais.has(a.id)).map((a) => a.nome),
+          ];
+          if (indisponiveis.length > 0) {
+            item.motivoIndisponivel = `Indisponível no momento: ${indisponiveis.join(', ')}.`;
+          }
+          resultado.push(item);
         }
       } catch (erro) {
         console.warn(`Item ${row.id} do carrinho ignorado:`, erro);
@@ -154,7 +194,6 @@ export class SqliteCarrinhoRepository implements CarrinhoRepository {
     });
   }
 
-  /** Regra R3: mesmo produto, ou mesma pizza com os mesmos sabores, adicionais e observação. */
   private async buscarIgual(novo: NovoItemCarrinho, observacao: string | null): Promise<number | null> {
     if (novo.tipo === 'produto') {
       const row = await this.db.getFirstAsync<{ id: number }>(
@@ -204,7 +243,6 @@ export class SqliteCarrinhoRepository implements CarrinhoRepository {
   }
 
   async remover(id: number): Promise<void> {
-    // Sabores e adicionais do item saem junto (ON DELETE CASCADE).
     await this.db.runAsync('DELETE FROM carrinho_itens WHERE id = ?', id);
   }
 

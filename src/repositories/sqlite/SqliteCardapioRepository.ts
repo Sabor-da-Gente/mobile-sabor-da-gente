@@ -15,8 +15,8 @@ import {
 } from '@/models/Pizza';
 import { Produto, type ProdutoRow } from '@/models/Produto';
 import type { CardapioRepository, FiltroProdutos } from '@/repositories/CardapioRepository';
+import { TAXA_ENTREGA_CENTAVOS } from '@/services/PrecoService';
 
-/** Cardápio lido do SQLite do aparelho. Só retorna itens ativos. */
 export class SqliteCardapioRepository implements CardapioRepository {
   constructor(private readonly db: SQLiteDatabase) {}
 
@@ -85,6 +85,14 @@ export class SqliteCardapioRepository implements CardapioRepository {
       sabores: sabores.map((s) => Sabor.fromRow(s, precos)),
       adicionais: adicionais.map(Adicional.fromRow),
     };
+  }
+
+  async buscarTaxaEntrega(): Promise<number> {
+    const linha = await this.db.getFirstAsync<{ valor: string }>(
+      "SELECT valor FROM configuracoes WHERE chave = 'taxa_entrega'",
+    );
+    const taxa = Number(linha?.valor);
+    return Number.isInteger(taxa) && taxa >= 0 ? taxa : TAXA_ENTREGA_CENTAVOS;
   }
 
   async listarDestaques(): Promise<{ produtos: Produto[]; sabores: Sabor[] }> {
