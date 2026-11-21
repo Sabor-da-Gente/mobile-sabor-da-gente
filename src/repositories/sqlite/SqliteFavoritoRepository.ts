@@ -114,6 +114,31 @@ export class SqliteFavoritoRepository implements FavoritoRepository {
     return true;
   }
 
+  async adotarDoAparelho(): Promise<AlvoFavorito[]> {
+    const usuarioId = this.usuarioId;
+    if (!usuarioId) return [];
+
+    await this.db.runAsync(
+      `DELETE FROM favoritos
+        WHERE usuario_id IS NULL
+          AND (produto_id IN (SELECT produto_id FROM favoritos
+                               WHERE usuario_id = ? AND produto_id IS NOT NULL)
+            OR sabor_id IN (SELECT sabor_id FROM favoritos
+                             WHERE usuario_id = ? AND sabor_id IS NOT NULL))`,
+      usuarioId,
+      usuarioId,
+    );
+    const linhas = await this.db.getAllAsync<FavoritoLocalRow>(
+      'SELECT id, produto_id, sabor_id FROM favoritos WHERE usuario_id IS NULL ORDER BY id',
+    );
+    await this.db.runAsync('UPDATE favoritos SET usuario_id = ? WHERE usuario_id IS NULL', usuarioId);
+
+    return linhas.flatMap((linha) => {
+      const alvo = alvoDe(linha);
+      return alvo ? [alvo] : [];
+    });
+  }
+
   async importarDoServidor(remotos: FavoritoImportado[]): Promise<void> {
     const usuarioId = this.usuarioId;
     if (!usuarioId) return;

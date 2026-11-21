@@ -1,7 +1,10 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
-import { registrarOperacoesFavorito } from '@/repositories/offline/OfflineFavoritoRepository';
+import {
+  OfflineFavoritoRepository,
+  registrarOperacoesFavorito,
+} from '@/repositories/offline/OfflineFavoritoRepository';
 import { registrarOperacoesPedido } from '@/repositories/offline/OfflinePedidoRepository';
 import { registrarOperacoesPerfil } from '@/repositories/offline/OfflinePerfilRepository';
 import { SqliteFilaRepository } from '@/repositories/sqlite/SqliteFilaRepository';
@@ -31,11 +34,16 @@ export function iniciarSincronizador(db: SQLiteDatabase): {
   });
 
   const atualizar = async (): Promise<ResultadoSincronizacao> => {
-    const resultado = await sincronizador.agora();
-    if (resultado === 'concluida') {
-      const usuario = await usuarioAtual();
-      if (usuario) await atualizarDoServidor(db, usuario);
+    const usuario = await usuarioAtual();
+    if (usuario) {
+      try {
+        await new OfflineFavoritoRepository(db, usuario.id).adotarFavoritosDoAparelho();
+      } catch (e) {
+        console.warn('Não foi possível enviar os favoritos do aparelho:', e);
+      }
     }
+    const resultado = await sincronizador.agora();
+    if (resultado === 'concluida' && usuario) await atualizarDoServidor(db, usuario);
     return resultado;
   };
 

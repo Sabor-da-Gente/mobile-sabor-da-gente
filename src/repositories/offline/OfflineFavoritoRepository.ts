@@ -10,6 +10,8 @@ import { supabase } from '@/services/supabase';
 
 const CODIGO_DUPLICADO = '23505';
 
+type OperacaoFavorito = 'adicionar_favorito' | 'remover_favorito';
+
 function colunaDe(tipo: AlvoFavorito['tipo']): 'produto_id' | 'sabor_id' {
   return tipo === 'produto' ? 'produto_id' : 'sabor_id';
 }
@@ -35,26 +37,52 @@ export class OfflineFavoritoRepository implements FavoritoRepository {
     let favoritado = false;
     await this.db.withTransactionAsync(async () => {
       favoritado = await this.local.alternarNaTransacao(alvo);
-      await this.db.runAsync(
-        `DELETE FROM fila_sincronizacao
-          WHERE usuario_id = ?
-            AND operacao IN ('adicionar_favorito', 'remover_favorito')
-            AND status = 'pendente'
-            AND json_extract(payload, '$.tipo') = ?
-            AND json_extract(payload, '$.id') = ?`,
+      await this.enfileirarEstadoFinal(
         usuarioId,
-        alvo.tipo,
-        alvo.id,
-      );
-      await new SqliteFilaRepository(this.db).enfileirar(
-        usuarioId,
+        alvo,
         favoritado ? 'adicionar_favorito' : 'remover_favorito',
-        { tipo: alvo.tipo, id: alvo.id },
-        { avisar: false },
       );
     });
     avisarNovoItem();
     return favoritado;
+  }
+
+  async adotarFavoritosDoAparelho(): Promise<void> {
+    const usuarioId = this.usuarioId;
+    if (!usuarioId) return;
+
+    let adotados: AlvoFavorito[] = [];
+    await this.db.withTransactionAsync(async () => {
+      adotados = await this.local.adotarDoAparelho();
+      for (const alvo of adotados) {
+        await this.enfileirarEstadoFinal(usuarioId, alvo, 'adicionar_favorito');
+      }
+    });
+    if (adotados.length > 0) avisarNovoItem();
+  }
+
+  private async enfileirarEstadoFinal(
+    usuarioId: string,
+    alvo: AlvoFavorito,
+    operacao: OperacaoFavorito,
+  ): Promise<void> {
+    await this.db.runAsync(
+      `DELETE FROM fila_sincronizacao
+        WHERE usuario_id = ?
+          AND operacao IN ('adicionar_favorito', 'remover_favorito')
+          AND status = 'pendente'
+          AND json_extract(payload, '$.tipo') = ?
+          AND json_extract(payload, '$.id') = ?`,
+      usuarioId,
+      alvo.tipo,
+      alvo.id,
+    );
+    await new SqliteFilaRepository(this.db).enfileirar(
+      usuarioId,
+      operacao,
+      { tipo: alvo.tipo, id: alvo.id },
+      { avisar: false },
+    );
   }
 }
 
