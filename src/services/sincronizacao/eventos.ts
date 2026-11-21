@@ -33,6 +33,13 @@ export function ouvirDadosAtualizados(ouvinte: Ouvinte): () => void {
   return inscrever(aoAtualizarDados, ouvinte);
 }
 
+let ultimaAtualizacao: string | null = null;
+
+export function ultimaAtualizacaoDoServidor(): string | null {
+  return ultimaAtualizacao;
+}
+
 export function avisarDadosAtualizados(): void {
+  ultimaAtualizacao = new Date().toISOString();
   for (const ouvinte of aoAtualizarDados) ouvinte();
 }

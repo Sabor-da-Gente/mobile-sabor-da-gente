@@ -10,6 +10,7 @@ import { supabase } from '@/services/supabase';
 
 import { ouvirNovosItens } from './eventos';
 import { atualizarDoServidor } from './atualizarDoServidor';
+import { assinarPedidos } from './statusRealtime';
 import { type ResultadoSincronizacao, SincronizadorService } from './SincronizadorService';
 
 export function iniciarSincronizador(db: SQLiteDatabase): {
@@ -39,14 +40,25 @@ export function iniciarSincronizador(db: SQLiteDatabase): {
   const appState = AppState.addEventListener('change', (estado) => {
     if (estado === 'active') void atualizar();
   });
-  const auth = supabase.auth.onAuthStateChange((evento) => {
-    if (evento === 'SIGNED_IN') setTimeout(() => void atualizar(), 0);
+  let assinatura: { usuarioId: string; cancelar: () => void } | null = null;
+  const assinarStatus = (usuarioId: string | null) => {
+    if (assinatura?.usuarioId === usuarioId) return;
+    assinatura?.cancelar();
+    assinatura = usuarioId ? { usuarioId, cancelar: assinarPedidos(db, usuarioId) } : null;
+  };
+
+  const auth = supabase.auth.onAuthStateChange((evento, sessao) => {
+    setTimeout(() => {
+      assinarStatus(sessao?.user.id ?? null);
+      if (evento === 'SIGNED_IN') void atualizar();
+    }, 0);
   });
   const cancelamentos = [
     aoVoltarConexao(() => void atualizar()),
     ouvirNovosItens(() => void sincronizador.sincronizar()),
     () => appState.remove(),
     () => auth.data.subscription.unsubscribe(),
+    () => assinarStatus(null),
   ];
 
   void atualizar();
