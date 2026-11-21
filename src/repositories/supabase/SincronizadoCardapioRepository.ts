@@ -1,12 +1,12 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import type { OpcoesPizza, Sabor } from '@/models/Pizza';
 import type { Produto } from '@/models/Produto';
 import type { FiltroProdutos } from '@/repositories/CardapioRepository';
 import { SqliteCardapioRepository } from '@/repositories/sqlite/SqliteCardapioRepository';
 
-import { sincronizarProdutos } from './sincronizarProdutos';
+import { sincronizarCardapio } from './sincronizarCardapio';
 
-/** Cardápio do SQLite, atualizado com os produtos do painel (Supabase) antes de listar. */
 export class SincronizadoCardapioRepository extends SqliteCardapioRepository {
   private readonly banco: SQLiteDatabase;
 
@@ -16,7 +16,17 @@ export class SincronizadoCardapioRepository extends SqliteCardapioRepository {
   }
 
   override async listarProdutos(filtro: FiltroProdutos = {}): Promise<Produto[]> {
-    await sincronizarProdutos(this.banco);
+    await sincronizarCardapio(this.banco);
     return super.listarProdutos(filtro);
+  }
+
+  override async buscarOpcoesPizza(): Promise<OpcoesPizza> {
+    await sincronizarCardapio(this.banco);
+    return super.buscarOpcoesPizza();
+  }
+
+  override async listarDestaques(): Promise<{ produtos: Produto[]; sabores: Sabor[] }> {
+    await sincronizarCardapio(this.banco);
+    return super.listarDestaques();
   }
 }
