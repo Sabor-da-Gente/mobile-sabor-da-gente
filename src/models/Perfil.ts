@@ -1,6 +1,5 @@
 export type PerfilRow = { nome: string; telefone: string; email: string | null };
 
-/** Dados do cliente; um perfil por aparelho, sem senha. */
 export type Perfil = { nome: string; telefone: string; email: string | null };
 
 export type EnderecoRow = {
@@ -15,6 +14,7 @@ export type EnderecoRow = {
   cep: string | null;
   referencia: string | null;
   principal: number;
+  sincronizado?: number;
 };
 
 export type DadosEndereco = {
@@ -34,14 +34,13 @@ export class Endereco {
     readonly id: number,
     readonly dados: DadosEndereco,
     readonly principal: boolean,
+    readonly sincronizado = true,
   ) {}
 
-  /** "Casa", ou a rua quando não há apelido. */
   get titulo(): string {
     return this.dados.apelido || `${this.dados.logradouro}, ${this.dados.numero}`;
   }
 
-  /** Texto completo para a entrega: "Rua A, 10 - Apto 2 - Centro, João Pessoa/PB (Ref.: ...)". */
   resumo(): string {
     const d = this.dados;
     const complemento = d.complemento ? ` - ${d.complemento}` : '';
@@ -50,7 +49,7 @@ export class Endereco {
   }
 
   static fromRow(row: EnderecoRow): Endereco {
-    const { id, principal, ...dados } = row;
-    return new Endereco(id, dados, principal === 1);
+    const { id, principal, sincronizado, ...dados } = row;
+    return new Endereco(id, dados, principal === 1, sincronizado !== 0);
   }
 }

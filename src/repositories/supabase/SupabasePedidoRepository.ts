@@ -122,12 +122,11 @@ function paraPedido(linha: LinhaPedido): Pedido {
     status: linha.status,
     historico,
     criadoEm: linha.criado_em,
+    sincronizado: true,
   };
 }
 
-/** Pedidos gravados no Supabase pela função criar_pedido; o status é mudado pela pizzaria. */
 export class SupabasePedidoRepository implements PedidoRepository {
-  /** O carrinho continua no celular; é esvaziado depois que o pedido é aceito. */
   constructor(private readonly carrinho: CarrinhoRepository) {}
 
   async criar(novo: NovoPedido, itens: ItemCarrinho[]): Promise<Pedido> {
@@ -145,7 +144,6 @@ export class SupabasePedidoRepository implements PedidoRepository {
     });
     if (error) throw erroAmigavel(error);
 
-    // Daqui para a frente o pedido já existe: nada pode lançar erro e induzir um segundo pedido.
     await this.carrinho.limpar().catch((e) => console.error('Erro ao esvaziar o carrinho:', e));
 
     const numero = (data as { numero: number }).numero;
@@ -161,6 +159,7 @@ export class SupabasePedidoRepository implements PedidoRepository {
       status: 'recebido',
       historico: [{ status: 'recebido', em: agora }],
       criadoEm: agora,
+      sincronizado: true,
     };
   }
 
@@ -191,7 +190,6 @@ export class SupabasePedidoRepository implements PedidoRepository {
     return data ? paraPedido(data as unknown as LinhaPedido) : null;
   }
 
-  /** Quem muda o status é a pizzaria (painel Web); o app não grava status. */
   async registrarStatus(): Promise<boolean> {
     return false;
   }
