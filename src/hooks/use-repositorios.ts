@@ -1,7 +1,3 @@
-import { SupabasePedidoRepository } from '@/repositories/supabase/SupabasePedidoRepository';
-import { SupabasePerfilRepository } from '@/repositories/supabase/SupabasePerfilRepository';
-import { useSQLiteContext } from 'expo-sqlite';
-import { useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import type { CardapioRepository } from '@/repositories/CardapioRepository';
 import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
@@ -10,9 +6,13 @@ import { OfflinePedidoRepository } from '@/repositories/offline/OfflinePedidoRep
 import { OfflinePerfilRepository } from '@/repositories/offline/OfflinePerfilRepository';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
-import { SincronizadoCardapioRepository } from '@/repositories/supabase/SincronizadoCardapioRepository';
 import { SqliteCarrinhoRepository } from '@/repositories/sqlite/SqliteCarrinhoRepository';
 import { SqliteFavoritoRepository } from '@/repositories/sqlite/SqliteFavoritoRepository';
+import { SincronizadoCardapioRepository } from '@/repositories/supabase/SincronizadoCardapioRepository';
+import { SupabasePedidoRepository } from '@/repositories/supabase/SupabasePedidoRepository';
+import { SupabasePerfilRepository } from '@/repositories/supabase/SupabasePerfilRepository';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useMemo } from 'react';
 
 export function useCardapioRepository(): CardapioRepository {
   const db = useSQLiteContext();
@@ -48,5 +48,7 @@ export function usePerfilRepository(): PerfilRepository {
 
 export function useFavoritoRepository(): FavoritoRepository {
   const db = useSQLiteContext();
-  return useMemo(() => new SqliteFavoritoRepository(db), [db]);
+  const { user } = useAuth();
+  const id = user?.id ?? null;
+  return useMemo(() => new SqliteFavoritoRepository(db, id), [db, id]);
 }

@@ -21,7 +21,10 @@ type SaborFavoritoRow = {
 };
 
 export class SqliteFavoritoRepository implements FavoritoRepository {
-  constructor(private readonly db: SQLiteDatabase) {}
+  constructor(
+    private readonly db: SQLiteDatabase,
+    private readonly usuarioId: string | null,
+  ) {}
 
   async listar(): Promise<Favorito[]> {
     const [produtos, sabores] = await Promise.all([
@@ -29,14 +32,18 @@ export class SqliteFavoritoRepository implements FavoritoRepository {
         `SELECT f.id AS favorito_id, p.id, p.nome, p.descricao, p.preco, c.slug, c.icone
            FROM favoritos f
            JOIN produtos p ON p.id = f.produto_id AND p.ativo = 1
-           JOIN categorias c ON c.id = p.categoria_id AND c.ativa = 1`,
+           JOIN categorias c ON c.id = p.categoria_id AND c.ativa = 1
+          WHERE f.usuario_id IS ?`,
+        this.usuarioId,
       ),
       this.db.getAllAsync<SaborFavoritoRow>(
         `SELECT f.id AS favorito_id, s.id, s.nome, s.descricao, MIN(sp.preco) AS a_partir_de
            FROM favoritos f
            JOIN sabores s ON s.id = f.sabor_id AND s.ativo = 1
            LEFT JOIN sabor_precos sp ON sp.sabor_id = s.id
+          WHERE f.usuario_id IS ?
           GROUP BY f.id`,
+        this.usuarioId,
       ),
     ]);
 
@@ -67,9 +74,17 @@ export class SqliteFavoritoRepository implements FavoritoRepository {
     const coluna = tipo === 'produto' ? 'produto_id' : 'sabor_id';
     let favoritado = false;
     await this.db.withTransactionAsync(async () => {
-      const removido = await this.db.runAsync(`DELETE FROM favoritos WHERE ${coluna} = ?`, id);
+      const removido = await this.db.runAsync(
+        `DELETE FROM favoritos WHERE usuario_id IS ? AND ${coluna} = ?`,
+        this.usuarioId,
+        id,
+      );
       if (removido.changes === 0) {
-        await this.db.runAsync(`INSERT INTO favoritos (${coluna}) VALUES (?)`, id);
+        await this.db.runAsync(
+          `INSERT INTO favoritos (usuario_id, ${coluna}) VALUES (?, ?)`,
+          this.usuarioId,
+          id,
+        );
         favoritado = true;
       }
     });
