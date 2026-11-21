@@ -88,10 +88,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const descartar = useCallback(
     async (id: number) => {
       const item = usuarioId ? (await fila.listar(usuarioId)).find((i) => i.id === id) : undefined;
-      if (item && item.status !== 'enviando') {
-        await buscarAoDescartar(item.operacao)?.(item.payload, { db, usuarioId: item.usuarioId });
-      }
+      if (!item || item.status === 'enviando') return;
       await fila.descartar(id);
+      await buscarAoDescartar(item.operacao)?.(item.payload, { db, usuarioId: item.usuarioId });
     },
     [db, fila, usuarioId],
   );

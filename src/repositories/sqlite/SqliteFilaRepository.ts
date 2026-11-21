@@ -87,13 +87,27 @@ export class SqliteFilaRepository implements FilaRepository {
   }
 
   async buscarPendente(usuarioId: string, operacao: string, idLocal: number): Promise<ItemFila | null> {
+    return this.buscarPorIdLocal(usuarioId, operacao, idLocal, 'pendente');
+  }
+
+  async buscarComErro(usuarioId: string, operacao: string, idLocal: number): Promise<ItemFila | null> {
+    return this.buscarPorIdLocal(usuarioId, operacao, idLocal, 'erro');
+  }
+
+  private async buscarPorIdLocal(
+    usuarioId: string,
+    operacao: string,
+    idLocal: number,
+    status: StatusItemFila,
+  ): Promise<ItemFila | null> {
     const row = await this.db.getFirstAsync<ItemFilaRow>(
       `SELECT ${COLUNAS} FROM fila_sincronizacao
-        WHERE usuario_id = ? AND operacao = ? AND status = 'pendente'
+        WHERE usuario_id = ? AND operacao = ? AND status = ?
           AND json_extract(payload, '$.idLocal') = ?
         ORDER BY id DESC LIMIT 1`,
       usuarioId,
       operacao,
+      status,
       idLocal,
     );
     return row ? paraItem(row) : null;

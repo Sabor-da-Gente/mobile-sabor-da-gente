@@ -10,7 +10,7 @@ import {
   PAGAMENTO_PARA_BANCO,
   paraItemRpc,
   type ItemRpc,
-  type SupabasePedidoRepository,
+  SupabasePedidoRepository,
 } from '@/repositories/supabase/SupabasePedidoRepository';
 import { falhaDoSupabase } from '@/repositories/supabase/util';
 import { onlineAgora } from '@/services/conexao';
@@ -30,6 +30,8 @@ type PayloadCriarPedido = {
   enderecoIdLocal: number | null;
   trocoPara: number | null;
 };
+
+type PayloadCancelarPedido = { idLocal: number };
 
 type RespostaCriarPedido = {
   id: string;
@@ -130,12 +132,27 @@ export class OfflinePedidoRepository implements PedidoRepository {
 
   async cancelar(id: number): Promise<boolean> {
     if (!this.usuarioId) return false;
-    const idRemoto = await this.local(this.usuarioId).idRemoto(id);
-    if (!idRemoto) {
-      throw new Error('O pedido ainda não foi enviado à pizzaria. Tente cancelar depois do envio.');
-    }
-    const cancelou = await this.remoto.cancelar(idRemoto);
-    await this.buscar(id);
+    const usuarioId = this.usuarioId;
+    const local = this.local(usuarioId);
+    const fila = new SqliteFilaRepository(this.db);
+    let cancelou = false;
+
+    await this.db.withTransactionAsync(async () => {
+      const criar =
+        (await fila.buscarPendente(usuarioId, 'criar_pedido', id)) ??
+        (await fila.buscarComErro(usuarioId, 'criar_pedido', id));
+      if (criar) {
+        cancelou = await local.marcarCancelado(id, true);
+        if (cancelou) await fila.descartar(criar.id);
+        return;
+      }
+
+      cancelou = await local.marcarCancelado(id, false);
+      if (cancelou) {
+        await fila.enfileirar(usuarioId, 'cancelar_pedido', { idLocal: id }, { avisar: false });
+      }
+    });
+    if (cancelou) avisarNovoItem();
     return cancelou;
   }
 
@@ -182,6 +199,32 @@ export function registrarOperacoesPedido(): void {
     {
       aoDescartar: async (p, { db, usuarioId }) => {
         await new SqlitePedidoRepository(db, usuarioId).excluir(p.idLocal);
+      },
+    },
+  );
+
+  registrarOperacao<PayloadCancelarPedido>(
+    'cancelar_pedido',
+    async (p, { db, usuarioId }) => {
+      const local = new SqlitePedidoRepository(db, usuarioId);
+      const idRemoto = await local.idRemoto(p.idLocal);
+      if (!idRemoto) throw new FalhaEnvio('O pedido não chegou à pizzaria.', 'regra');
+
+      const { error, status } = await supabase.rpc('cancelar_pedido', { p_pedido_id: idRemoto });
+      if (error?.hint === 'TRANSICAO_INVALIDA') {
+        const remoto = await new SupabasePedidoRepository().buscar(usuarioId, idRemoto).catch(() => null);
+        await local.reverterCancelamento(p.idLocal, remoto?.status ?? 'em_preparo');
+        throw new FalhaEnvio(
+          'A pizzaria já começou a preparar este pedido, então ele não pôde ser cancelado.',
+          'regra',
+        );
+      }
+      if (error) throw falhaDoSupabase(error, status);
+      await local.marcarSincronizado(p.idLocal);
+    },
+    {
+      aoDescartar: async (p, { db, usuarioId }) => {
+        await new SqlitePedidoRepository(db, usuarioId).reverterCancelamento(p.idLocal, 'recebido');
       },
     },
   );
