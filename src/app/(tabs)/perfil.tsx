@@ -3,11 +3,13 @@ import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
 import { BotaoFavorito } from '@/components/botao-favorito';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
 import { useAuth } from '@/context/AuthContext';
 import { useFavoritos } from '@/context/FavoritosContext';
+import { useSync } from '@/context/SyncContext';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
 import type { Endereco, Perfil } from '@/models/Perfil';
@@ -45,9 +47,10 @@ export default function PerfilScreen() {
         <Text style={styles.titulo}>Meu perfil 👤</Text>
         <Text style={styles.subtitulo}>Seus dados ficam salvos na sua conta.</Text>
 
+        <AvisoOffline />
+
         <ContaCard />
 
-        {/* key: refaz o formulário quando o perfil salvo muda. */}
         <FormularioPerfil
           key={JSON.stringify(dados.perfil)}
           perfil={dados.perfil}
@@ -62,6 +65,8 @@ export default function PerfilScreen() {
           <Text style={styles.atalhoTexto}>📦 Meus pedidos</Text>
           <Text style={styles.atalhoSeta}>›</Text>
         </TouchableOpacity>
+
+        <AtalhoPendencias />
       </ScrollView>
     </SafeAreaView>
   );
@@ -297,7 +302,25 @@ const styles = StyleSheet.create({
   },
   atalhoTexto: { fontSize: 16, fontWeight: 'bold', color: Paleta.texto },
   atalhoSeta: { fontSize: 22, color: Paleta.textoSuave },
+  atalhoPendencias: { marginTop: 12 },
 });
+
+function AtalhoPendencias() {
+  const { pendentes, erros } = useSync();
+  if (pendentes + erros === 0) return null;
+
+  return (
+    <TouchableOpacity
+      style={[styles.atalho, styles.atalhoPendencias]}
+      onPress={() => router.push('/pendencias')}
+    >
+      <Text style={styles.atalhoTexto}>
+        {erros > 0 ? '⚠️' : '⏳'} Alterações pendentes ({pendentes + erros})
+      </Text>
+      <Text style={styles.atalhoSeta}>›</Text>
+    </TouchableOpacity>
+  );
+}
 
 function ContaCard() {
   const { user, sair } = useAuth();

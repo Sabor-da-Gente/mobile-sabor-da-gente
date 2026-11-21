@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
+import { SeloPendente } from '@/components/selo-pendente';
 import { LinhaDoTempo } from '@/components/linha-do-tempo';
 import { Paleta } from '@/constants/paleta';
 import { useConsulta } from '@/hooks/use-consulta';
@@ -39,8 +41,6 @@ export default function PedidoDetalheScreen() {
   }, [pedidoRepo, id]);
   const { dados, carregando, recarregar } = useConsulta(carregar);
   const pedido = dados ?? undefined;
-
-  // Regra R6: enquanto a tela está aberta, confere o status a cada 5 s.
   const acompanhando = pedido !== undefined && !finalizado(pedido);
   useFocusEffect(
     useCallback(() => {
@@ -118,12 +118,15 @@ export default function PedidoDetalheScreen() {
           <View style={styles.cabecalhoTexto}>
             <Text style={styles.titulo}>Pedido #{pedido.numero}</Text>
             <Text style={styles.data}>{formatarDataHora(pedido.criadoEm)}</Text>
+            <SeloPendente sincronizado={pedido.sincronizado} />
           </View>
 
           <View style={[styles.status, { backgroundColor: COR_STATUS[pedido.status] }]}>
             <Text style={styles.statusTexto}>{ROTULO_STATUS[pedido.status]}</Text>
           </View>
         </View>
+
+        <AvisoOffline />
 
         <View style={styles.cartao}>
           <Text style={styles.secao}>Acompanhamento</Text>

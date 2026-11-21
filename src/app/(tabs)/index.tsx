@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
@@ -24,7 +25,6 @@ export default function HomeScreen() {
       repo.buscarOpcoesPizza(),
     ]);
 
-    // Cartão da pizza: maior tamanho e o menor preço de sabor nele.
     const maiorTamanho = opcoesPizza.tamanhos.at(-1);
     const precosNoTamanho = maiorTamanho
       ? opcoesPizza.sabores
@@ -67,7 +67,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Cabeçalho */}
+        <AvisoOffline />
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Olá! 👋</Text>
@@ -102,7 +102,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Destaque */}
         <View style={styles.highlight}>
           <Text style={styles.highlightTitle}>
             Seu sabor favorito está aqui! 🍕
@@ -128,8 +127,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Categorias */}
         <Text style={styles.sectionTitle}>Categorias</Text>
 
         <View style={styles.categories}>
@@ -148,8 +145,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Mais pedidos */}
         {(pizza || produtosDestaque.length > 0) && (
           <Text style={styles.sectionTitle}>Mais pedidos</Text>
         )}

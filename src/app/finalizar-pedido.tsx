@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
@@ -27,7 +28,6 @@ import { formatarTelefone, telefoneValido } from '@/utils/validacao';
 
 export default function FinalizarPedidoScreen() {
   const perfilRepo = usePerfilRepository();
-  // Recarrega ao voltar do cadastro de endereço.
   const carregar = useCallback(async () => {
     const [perfil, enderecos] = await Promise.all([
       perfilRepo.buscarPerfil(),
@@ -254,6 +254,8 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
         <Text style={styles.description}>
           Preencha os dados para revisar seu pedido.
         </Text>
+
+        <AvisoOffline />
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>

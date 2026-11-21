@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
+import { SeloPendente } from '@/components/selo-pendente';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
 import { useAuth } from '@/context/AuthContext';
@@ -80,6 +82,8 @@ export default function EnderecosScreen() {
         <Text style={styles.titulo}>Meus endereços 📍</Text>
         <Text style={styles.subtitulo}>O endereço principal já vem escolhido no pedido.</Text>
 
+        <AvisoOffline />
+
         {enderecos.length === 0 && (
           <View style={styles.vazio}>
             <Text style={styles.vazioTexto}>Você ainda não salvou nenhum endereço.</Text>
@@ -92,6 +96,7 @@ export default function EnderecosScreen() {
               <Text style={styles.cartaoTitulo}>{endereco.titulo}</Text>
               {endereco.principal && <Text style={styles.selo}>Principal</Text>}
             </View>
+            <SeloPendente sincronizado={endereco.sincronizado} />
             <Text style={styles.cartaoTexto}>{endereco.resumo()}</Text>
             {endereco.dados.cep && <Text style={styles.cartaoTexto}>CEP {endereco.dados.cep}</Text>}
 
