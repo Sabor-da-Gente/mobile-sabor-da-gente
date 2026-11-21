@@ -26,15 +26,30 @@ export class SqlitePerfilRepository implements PerfilRepository {
   }
 
   async salvarPerfil(perfil: Perfil): Promise<void> {
+    await this.gravarPerfil(perfil, false);
+  }
+
+  async gravarPerfil(perfil: Perfil, sincronizado: boolean): Promise<void> {
     await this.db.runAsync(
-      `INSERT INTO perfil (usuario_id, nome, telefone, email) VALUES (?, ?, ?, ?)
+      `INSERT INTO perfil (usuario_id, nome, telefone, email, sincronizado) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (usuario_id) DO UPDATE SET
          nome = excluded.nome, telefone = excluded.telefone, email = excluded.email,
+         sincronizado = excluded.sincronizado,
          atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
       this.usuarioId,
       perfil.nome,
       perfil.telefone,
       perfil.email,
+      sincronizado ? 1 : 0,
+    );
+  }
+
+  async marcarPerfilSincronizado(enviado: { nome: string; telefone: string }): Promise<void> {
+    await this.db.runAsync(
+      'UPDATE perfil SET sincronizado = 1 WHERE usuario_id = ? AND nome = ? AND telefone = ?',
+      this.usuarioId,
+      enviado.nome,
+      enviado.telefone,
     );
   }
 

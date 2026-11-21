@@ -1,6 +1,12 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import type { FilaRepository, ItemFila, ResumoFila, StatusItemFila } from '@/repositories/FilaRepository';
+import type {
+  FilaRepository,
+  ItemFila,
+  OpcoesEnfileirar,
+  ResumoFila,
+  StatusItemFila,
+} from '@/repositories/FilaRepository';
 import { avisarFilaMudou, avisarNovoItem } from '@/services/sincronizacao/eventos';
 
 type ItemFilaRow = {
@@ -33,33 +39,38 @@ function paraItem(row: ItemFilaRow): ItemFila {
 export class SqliteFilaRepository implements FilaRepository {
   constructor(private readonly db: SQLiteDatabase) {}
 
-  async enfileirar(usuarioId: string, operacao: string, payload: unknown): Promise<number> {
+  async enfileirar(
+    usuarioId: string,
+    operacao: string,
+    payload: unknown,
+    { substituirPendentes = false, avisar = true }: OpcoesEnfileirar = {},
+  ): Promise<number> {
+    if (substituirPendentes) {
+      await this.db.runAsync(
+        "DELETE FROM fila_sincronizacao WHERE usuario_id = ? AND operacao = ? AND status = 'pendente'",
+        usuarioId,
+        operacao,
+      );
+    }
     const { lastInsertRowId } = await this.db.runAsync(
       'INSERT INTO fila_sincronizacao (usuario_id, operacao, payload) VALUES (?, ?, ?)',
       usuarioId,
       operacao,
       JSON.stringify(payload ?? null),
     );
-    avisarNovoItem();
+    if (avisar) avisarNovoItem();
     return lastInsertRowId;
   }
 
   async proximo(usuarioId: string): Promise<ItemFila | null> {
-    const encontrado: { row: ItemFilaRow | null } = { row: null };
-    await this.db.withTransactionAsync(async () => {
-      const row = await this.db.getFirstAsync<ItemFilaRow>(
-        `SELECT ${COLUNAS} FROM fila_sincronizacao
-          WHERE usuario_id = ? AND status = 'pendente' ORDER BY id LIMIT 1`,
-        usuarioId,
-      );
-      if (!row) return;
-      await this.db.runAsync(
-        `UPDATE fila_sincronizacao SET status = 'enviando', atualizado_em = ${AGORA} WHERE id = ?`,
-        row.id,
-      );
-      encontrado.row = { ...row, status: 'enviando' };
-    });
-    return encontrado.row ? paraItem(encontrado.row) : null;
+    const row = await this.db.getFirstAsync<ItemFilaRow>(
+      `UPDATE fila_sincronizacao SET status = 'enviando', atualizado_em = ${AGORA}
+        WHERE id = (SELECT id FROM fila_sincronizacao
+                     WHERE usuario_id = ? AND status = 'pendente' ORDER BY id LIMIT 1)
+        RETURNING ${COLUNAS}`,
+      usuarioId,
+    );
+    return row ? paraItem(row) : null;
   }
 
   async concluir(id: number): Promise<void> {

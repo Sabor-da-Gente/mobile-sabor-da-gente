@@ -3,16 +3,17 @@ import { SupabasePerfilRepository } from '@/repositories/supabase/SupabasePerfil
 import { useSQLiteContext } from 'expo-sqlite';
 import { useMemo } from 'react';
 
+import { useAuth } from '@/context/AuthContext';
 import type { CardapioRepository } from '@/repositories/CardapioRepository';
 import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
 import type { FavoritoRepository } from '@/repositories/FavoritoRepository';
+import { OfflinePerfilRepository } from '@/repositories/offline/OfflinePerfilRepository';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
 import { SincronizadoCardapioRepository } from '@/repositories/supabase/SincronizadoCardapioRepository';
 import { SqliteCarrinhoRepository } from '@/repositories/sqlite/SqliteCarrinhoRepository';
 import { SqliteFavoritoRepository } from '@/repositories/sqlite/SqliteFavoritoRepository';
 
-/** Ponto único de escolha da implementação: quando a API existir, troque aqui. */
 export function useCardapioRepository(): CardapioRepository {
   const db = useSQLiteContext();
   return useMemo(() => new SincronizadoCardapioRepository(db), [db]);
@@ -29,7 +30,15 @@ export function usePedidoRepository(): PedidoRepository {
 }
 
 export function usePerfilRepository(): PerfilRepository {
-  return useMemo(() => new SupabasePerfilRepository(), []);
+  const db = useSQLiteContext();
+  const { user } = useAuth();
+  const id = user?.id ?? null;
+  const email = user?.email ?? null;
+  return useMemo(
+    () =>
+      new OfflinePerfilRepository(db, id ? { id, email } : null, new SupabasePerfilRepository()),
+    [db, id, email],
+  );
 }
 
 export function useFavoritoRepository(): FavoritoRepository {
