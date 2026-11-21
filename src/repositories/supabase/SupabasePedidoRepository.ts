@@ -127,17 +127,28 @@ function paraPedido(linha: LinhaPedido): Pedido {
 }
 
 export class SupabasePedidoRepository implements PedidoRepository {
-  constructor(private readonly carrinho: CarrinhoRepository) {}
+  constructor(
+    private readonly carrinho: CarrinhoRepository,
+    private readonly idRemotoDoEndereco: (idLocal: number) => Promise<number | null>,
+  ) {}
 
   async criar(novo: NovoPedido, itens: ItemCarrinho[]): Promise<Pedido> {
     const usuario = await exigirUsuario('Entre na sua conta para fazer o pedido.');
     await this.atualizarPerfil(usuario.id, novo);
 
+    let enderecoRemoto: number | null = null;
+    if (novo.tipoEntrega === 'entrega' && novo.enderecoId !== null) {
+      enderecoRemoto = await this.idRemotoDoEndereco(novo.enderecoId);
+      if (enderecoRemoto === null) {
+        throw new Error('Este endereço ainda está sendo enviado. Aguarde a conexão e tente de novo.');
+      }
+    }
+
     const { data, error } = await supabase.rpc('criar_pedido', {
       p_itens: itens.map(paraItemRpc),
       p_tipo_entrega: novo.tipoEntrega,
       p_forma_pagamento: PAGAMENTO_PARA_BANCO[novo.pagamento],
-      p_endereco_id: novo.tipoEntrega === 'entrega' ? novo.enderecoId : null,
+      p_endereco_id: enderecoRemoto,
       p_troco_para: novo.trocoParaCentavos,
       p_cupom: null,
       p_observacao: null,
