@@ -9,6 +9,7 @@ import {
 
 import { useFavoritoRepository } from '@/hooks/use-repositorios';
 import type { AlvoFavorito, Favorito } from '@/repositories/FavoritoRepository';
+import { ouvirDadosAtualizados } from '@/services/sincronizacao/eventos';
 
 type FavoritosContextType = {
   favoritos: Favorito[];
@@ -27,13 +28,19 @@ export function FavoritosProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let ativo = true;
-    repo
-      .listar()
-      .then((lista) => ativo && setFavoritos(lista))
-      .catch((erro) => console.error('Erro ao carregar favoritos:', erro))
-      .finally(() => ativo && setCarregando(false));
+    const carregar = () =>
+      repo
+        .listar()
+        .then((lista) => ativo && setFavoritos(lista))
+        .catch((erro) => console.error('Erro ao carregar favoritos:', erro));
+
+    carregar().finally(() => ativo && setCarregando(false));
+    const parar = ouvirDadosAtualizados(() => {
+      void carregar();
+    });
     return () => {
       ativo = false;
+      parar();
     };
   }, [repo]);
 
