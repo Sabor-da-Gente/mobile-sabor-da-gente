@@ -30,6 +30,7 @@ export interface FilaRepository {
   adiar(id: number, mensagem: string): Promise<void>;
   falhar(id: number, mensagem: string): Promise<void>;
   buscarPendente(usuarioId: string, operacao: string, idLocal: number): Promise<ItemFila | null>;
+  buscarComErro(usuarioId: string, operacao: string, idLocal: number): Promise<ItemFila | null>;
   atualizarPayload(id: number, payload: unknown): Promise<void>;
   removerPendentes(usuarioId: string, operacao: string, idLocal: number): Promise<void>;
   reenviar(id: number): Promise<void>;

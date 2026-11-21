@@ -69,6 +69,12 @@ export type ConfirmacaoServidor = {
   total: number;
 };
 
+const NA_FILA = (incluirEnviando: boolean) => `EXISTS (
+  SELECT 1 FROM fila_sincronizacao f
+   WHERE f.usuario_id = pedidos.usuario_id AND f.operacao IN ('criar_pedido', 'cancelar_pedido')
+     AND json_extract(f.payload, '$.idLocal') = pedidos.id
+     ${incluirEnviando ? '' : "AND f.status <> 'enviando'"})`;
+
 const SELECT_PEDIDO =
   'SELECT id, numero, sincronizado, cliente_nome, cliente_telefone, tipo_entrega, endereco_id, ' +
   'endereco_entrega, status, forma_pagamento, troco_para, subtotal, taxa_entrega, total, ' +
@@ -160,16 +166,17 @@ export class SqlitePedidoRepository {
   async confirmarEnvio(id: number, c: ConfirmacaoServidor): Promise<void> {
     await this.db.runAsync(
       `UPDATE pedidos
-          SET id_remoto = ?, numero = ?, status = ?, subtotal = ?, desconto = ?, taxa_entrega = ?,
-              total = ?, sincronizado = 1
+          SET id_remoto = ?, numero = ?, subtotal = ?, desconto = ?, taxa_entrega = ?, total = ?,
+              status = CASE WHEN ${NA_FILA(false)} THEN status ELSE ? END,
+              sincronizado = NOT ${NA_FILA(false)}
         WHERE id = ? AND usuario_id = ?`,
       c.idRemoto,
       c.numero,
-      c.status,
       c.subtotal,
       c.desconto,
       c.taxaEntrega,
       c.total,
+      c.status,
       id,
       this.usuarioId,
     );
@@ -211,14 +218,52 @@ export class SqlitePedidoRepository {
     return row?.total ?? 0;
   }
 
+  async marcarCancelado(id: number, sincronizado: boolean): Promise<boolean> {
+    const { changes } = await this.db.runAsync(
+      `UPDATE pedidos SET status = 'cancelado', sincronizado = ?
+        WHERE id = ? AND usuario_id = ? AND status = 'recebido'`,
+      sincronizado ? 1 : 0,
+      id,
+      this.usuarioId,
+    );
+    if (changes === 0) return false;
+    await this.db.runAsync(
+      "INSERT INTO pedido_status_historico (pedido_id, status) VALUES (?, 'cancelado')",
+      id,
+    );
+    return true;
+  }
+
+  async reverterCancelamento(id: number, status: StatusPedido): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE pedidos SET status = ?, sincronizado = NOT ${NA_FILA(false)}
+        WHERE id = ? AND usuario_id = ? AND status = 'cancelado'`,
+      status,
+      id,
+      this.usuarioId,
+    );
+    await this.db.runAsync(
+      "DELETE FROM pedido_status_historico WHERE pedido_id = ? AND status = 'cancelado' AND id_remoto IS NULL",
+      id,
+    );
+  }
+
+  async marcarSincronizado(id: number): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE pedidos SET sincronizado = 1 WHERE id = ? AND usuario_id = ? AND NOT ${NA_FILA(false)}`,
+      id,
+      this.usuarioId,
+    );
+  }
+
   async excluir(id: number): Promise<void> {
     await this.db.runAsync('DELETE FROM pedidos WHERE id = ? AND usuario_id = ?', id, this.usuarioId);
   }
 
   async importar(remotos: PedidoRemoto[]): Promise<void> {
     for (const r of remotos) {
-      const existente = await this.db.getFirstAsync<{ id: number }>(
-        `SELECT id FROM pedidos
+      const existente = await this.db.getFirstAsync<{ id: number; na_fila: number }>(
+        `SELECT id, ${NA_FILA(true)} AS na_fila FROM pedidos
           WHERE usuario_id = ? AND (id_remoto = ? OR (chave_cliente IS NOT NULL AND chave_cliente = ?))`,
         this.usuarioId,
         r.idRemoto,
@@ -226,6 +271,21 @@ export class SqlitePedidoRepository {
       );
 
       let id: number;
+      if (existente?.na_fila) {
+        await this.db.runAsync(
+          `UPDATE pedidos SET id_remoto = ?, numero = ?, subtotal = ?, desconto = ?, taxa_entrega = ?,
+                  total = ?
+            WHERE id = ?`,
+          r.idRemoto,
+          r.numero,
+          r.subtotalCentavos,
+          r.descontoCentavos,
+          r.taxaEntregaCentavos,
+          r.totalCentavos,
+          existente.id,
+        );
+        continue;
+      }
       if (existente) {
         id = existente.id;
         await this.db.runAsync(

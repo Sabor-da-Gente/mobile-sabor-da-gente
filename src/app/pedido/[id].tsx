@@ -9,12 +9,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { AvisoOffline } from '@/components/aviso-offline';
 import { SeloPendente } from '@/components/selo-pendente';
 import { LinhaDoTempo } from '@/components/linha-do-tempo';
 import { Paleta } from '@/constants/paleta';
 import { useSync } from '@/context/SyncContext';
+import { useConexao } from '@/hooks/use-conexao';
 import { useConsulta } from '@/hooks/use-consulta';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { buscarPedido, cancelarPedido } from '@/services/pedidoService';
@@ -43,6 +43,7 @@ export default function PedidoDetalheScreen() {
   const { dados, carregando, recarregar } = useConsulta(carregar);
   const pedido = dados ?? undefined;
   const erroEnvio = useErroEnvio(Number(id), recarregar);
+  const { online } = useConexao();
   const acompanhando = pedido !== undefined && !finalizado(pedido);
   useFocusEffect(
     useCallback(() => {
@@ -70,7 +71,14 @@ export default function PedidoDetalheScreen() {
       const cancelado = await cancelarPedido(pedidoRepo, pedido.id);
 
       if (cancelado) {
-        avisar('Pedido cancelado', `${tituloPedido(pedido)} foi cancelado.`);
+        avisar(
+          'Pedido cancelado',
+          !pedido.numero
+            ? 'Ele ainda não tinha saído do aparelho, então não será enviado à pizzaria.'
+            : online
+              ? 'Estamos avisando a pizzaria.'
+              : 'A pizzaria será avisada quando a conexão voltar.',
+        );
       } else {
         avisar(
           'Não foi possível cancelar',
@@ -81,7 +89,7 @@ export default function PedidoDetalheScreen() {
       recarregar();
     } catch (erro) {
       console.error('Erro ao cancelar pedido:', erro);
-      avisar('Erro', 'Não foi possível cancelar o pedido. Tente novamente.');
+      avisar('Erro', erro instanceof Error ? erro.message : 'Não foi possível cancelar o pedido.');
     } finally {
       setProcessando(false);
     }
@@ -132,16 +140,26 @@ export default function PedidoDetalheScreen() {
 
         {erroEnvio && (
           <View style={[styles.cartao, styles.cartaoErro]}>
-            <Text style={styles.secao}>Não foi possível enviar</Text>
+            <Text style={styles.secao}>
+              {erroEnvio.cancelamento ? 'Não foi possível cancelar' : 'Não foi possível enviar'}
+            </Text>
             <Text style={styles.linha}>{erroEnvio.mensagem}</Text>
-            <View style={styles.acoes}>
-              <TouchableOpacity onPress={erroEnvio.reenviar}>
-                <Text style={styles.acao}>Tentar de novo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={erroEnvio.descartar}>
-                <Text style={[styles.acao, styles.acaoPerigo]}>Descartar pedido</Text>
-              </TouchableOpacity>
-            </View>
+            {erroEnvio.cancelamento ? (
+              <View style={styles.acoes}>
+                <TouchableOpacity onPress={erroEnvio.dispensar}>
+                  <Text style={styles.acao}>Entendi</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.acoes}>
+                <TouchableOpacity onPress={erroEnvio.reenviar}>
+                  <Text style={styles.acao}>Tentar de novo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={erroEnvio.descartar}>
+                  <Text style={[styles.acao, styles.acaoPerigo]}>Descartar pedido</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -229,7 +247,7 @@ export default function PedidoDetalheScreen() {
             )}
         </View>
 
-        {podeCancelar(pedido) && pedido.sincronizado && (
+        {podeCancelar(pedido) && (
           <TouchableOpacity
             style={[styles.botaoPrimario, processando && styles.botaoDesabilitado]}
             onPress={cancelar}
@@ -314,7 +332,9 @@ const styles = StyleSheet.create({
 /** Erro do envio deste pedido na fila, com as ações de tentar de novo ou descartar. */
 function useErroEnvio(idLocal: number, aoMudar: () => void) {
   const { versao, listarFila, reenviar, descartar } = useSync();
-  const [item, setItem] = useState<{ id: number; mensagem: string } | null>(null);
+  const [item, setItem] = useState<{ id: number; mensagem: string; cancelamento: boolean } | null>(
+    null,
+  );
 
   useEffect(() => {
     let ativo = true;
@@ -322,11 +342,20 @@ function useErroEnvio(idLocal: number, aoMudar: () => void) {
       .then((fila) => {
         const erro = fila.find(
           (i) =>
-            i.operacao === 'criar_pedido' &&
+            (i.operacao === 'criar_pedido' || i.operacao === 'cancelar_pedido') &&
             i.status === 'erro' &&
             (i.payload as { idLocal?: number }).idLocal === idLocal,
         );
-        if (ativo) setItem(erro ? { id: erro.id, mensagem: erro.ultimoErro ?? 'Erro desconhecido.' } : null);
+        if (!ativo) return;
+        setItem(
+          erro
+            ? {
+                id: erro.id,
+                mensagem: erro.ultimoErro ?? 'Erro desconhecido.',
+                cancelamento: erro.operacao === 'cancelar_pedido',
+              }
+            : null,
+        );
       })
       .catch((e) => console.error('Erro ao ler a fila:', e));
     aoMudar();
@@ -338,6 +367,8 @@ function useErroEnvio(idLocal: number, aoMudar: () => void) {
   if (!item) return null;
   return {
     mensagem: item.mensagem,
+    cancelamento: item.cancelamento,
+    dispensar: () => descartar(item.id),
     reenviar: () => reenviar(item.id),
     descartar: async () => {
       const confirmou = await confirmar(

@@ -38,5 +38,6 @@ export function formatarHora(iso: string): string {
 }
 
 export function tituloPedido(pedido: Pedido): string {
-  return pedido.numero ? `Pedido #${pedido.numero}` : 'Pedido aguardando envio';
+  if (pedido.numero) return `Pedido #${pedido.numero}`;
+  return pedido.sincronizado ? 'Pedido não enviado' : 'Pedido aguardando envio';
 }
