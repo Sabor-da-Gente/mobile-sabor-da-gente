@@ -1,17 +1,18 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
+import { registrarOperacoesFavorito } from '@/repositories/offline/OfflineFavoritoRepository';
 import { registrarOperacoesPedido } from '@/repositories/offline/OfflinePedidoRepository';
 import { registrarOperacoesPerfil } from '@/repositories/offline/OfflinePerfilRepository';
-import { usuarioAtual } from '@/repositories/supabase/util';
 import { SqliteFilaRepository } from '@/repositories/sqlite/SqliteFilaRepository';
+import { usuarioAtual } from '@/repositories/supabase/util';
 import { aoVoltarConexao, onlineAgora } from '@/services/conexao';
 import { supabase } from '@/services/supabase';
 
-import { ouvirNovosItens } from './eventos';
 import { atualizarDoServidor } from './atualizarDoServidor';
-import { assinarPedidos } from './statusRealtime';
+import { ouvirNovosItens } from './eventos';
 import { type ResultadoSincronizacao, SincronizadorService } from './SincronizadorService';
+import { assinarPedidos } from './statusRealtime';
 
 export function iniciarSincronizador(db: SQLiteDatabase): {
   sincronizador: SincronizadorService;
@@ -20,6 +21,7 @@ export function iniciarSincronizador(db: SQLiteDatabase): {
 } {
   registrarOperacoesPerfil();
   registrarOperacoesPedido();
+  registrarOperacoesFavorito();
 
   const sincronizador = new SincronizadorService({
     fila: new SqliteFilaRepository(db),
