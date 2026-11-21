@@ -18,6 +18,7 @@ import { avisarNovoItem } from '@/services/sincronizacao/eventos';
 import { FalhaEnvio, registrarOperacao } from '@/services/sincronizacao/operacoes';
 import { supabase } from '@/services/supabase';
 import type { NovoPedido, Pedido, StatusPedido } from '@/types';
+import { comLimite } from '@/utils/tempo';
 
 const LIMITE_ATUALIZACAO_MS = 5_000;
 
@@ -43,13 +44,6 @@ type RespostaCriarPedido = {
   total: number;
 };
 
-function comLimite<T>(promessa: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const limite = new Promise<never>((_, rejeitar) => {
-    timer = setTimeout(() => rejeitar(new Error('Tempo esgotado ao atualizar os pedidos.')), ms);
-  });
-  return Promise.race([promessa, limite]).finally(() => clearTimeout(timer));
-}
 
 export class OfflinePedidoRepository implements PedidoRepository {
   constructor(
@@ -119,7 +113,7 @@ export class OfflinePedidoRepository implements PedidoRepository {
   ): Promise<void> {
     if (!onlineAgora()) return;
     try {
-      const remotos = await comLimite(buscar(), LIMITE_ATUALIZACAO_MS);
+      const remotos = await comLimite(buscar(), LIMITE_ATUALIZACAO_MS, 'Tempo esgotado ao atualizar os pedidos.');
       await this.db.withTransactionAsync(() => local.importar(remotos));
     } catch (e) {
       console.warn('Pedidos não atualizados do servidor:', e);

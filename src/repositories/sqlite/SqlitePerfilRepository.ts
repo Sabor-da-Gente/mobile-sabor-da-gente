@@ -9,6 +9,8 @@ import {
 } from '@/models/Perfil';
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
 
+const OPERACOES_ENDERECO = "('criar_endereco','editar_endereco','endereco_principal','remover_endereco')";
+
 const COLUNAS_ENDERECO =
   'id, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal, sincronizado';
 
@@ -41,6 +43,20 @@ export class SqlitePerfilRepository implements PerfilRepository {
       perfil.telefone,
       perfil.email,
       sincronizado ? 1 : 0,
+    );
+  }
+  async atualizarPerfilDoServidor(remoto: Perfil): Promise<void> {
+    await this.db.runAsync(
+      `INSERT INTO perfil (usuario_id, nome, telefone, email, sincronizado) VALUES (?1, ?2, ?3, ?4, 1)
+       ON CONFLICT (usuario_id) DO UPDATE SET
+         nome = excluded.nome, telefone = excluded.telefone, email = excluded.email, sincronizado = 1,
+         atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+       WHERE NOT EXISTS (SELECT 1 FROM fila_sincronizacao
+                          WHERE usuario_id = ?1 AND operacao = 'salvar_perfil')`,
+      this.usuarioId,
+      remoto.nome,
+      remoto.telefone,
+      remoto.email,
     );
   }
 
@@ -174,6 +190,52 @@ export class SqlitePerfilRepository implements PerfilRepository {
       id,
       this.usuarioId,
     );
+  }
+
+  async atualizarEnderecosDoServidor(remotos: Endereco[]): Promise<boolean> {
+    const esperando = await this.db.getFirstAsync<{ total: number }>(
+      `SELECT COUNT(*) AS total FROM fila_sincronizacao
+        WHERE usuario_id = ? AND status IN ('pendente','enviando') AND operacao IN ${OPERACOES_ENDERECO}`,
+      this.usuarioId,
+    );
+    if ((esperando?.total ?? 0) > 0) return false;
+
+    const comErro = `EXISTS (SELECT 1 FROM fila_sincronizacao f
+                     WHERE f.usuario_id = enderecos.usuario_id AND f.operacao IN ${OPERACOES_ENDERECO}
+                       AND json_extract(f.payload, '$.idLocal') = enderecos.id)`;
+
+    for (const e of remotos) {
+      const d = e.dados;
+      await this.db.runAsync(
+        `UPDATE enderecos
+            SET apelido = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?, cidade = ?, uf = ?,
+                cep = ?, referencia = ?, principal = ?, ativo = 1, sincronizado = 1
+          WHERE usuario_id = ? AND id_remoto = ? AND NOT ${comErro}`,
+        d.apelido,
+        d.logradouro,
+        d.numero,
+        d.complemento,
+        d.bairro,
+        d.cidade,
+        d.uf,
+        d.cep,
+        d.referencia,
+        e.principal ? 1 : 0,
+        this.usuarioId,
+        e.id,
+      );
+    }
+    await this.importarEnderecos(remotos);
+
+    const ids = remotos.map((e) => e.id);
+    await this.db.runAsync(
+      `UPDATE enderecos SET ativo = 0, principal = 0, sincronizado = 1
+        WHERE usuario_id = ? AND ativo = 1 AND id_remoto IS NOT NULL
+          AND id_remoto NOT IN (${ids.map(() => '?').join(',')}) AND NOT ${comErro}`,
+      this.usuarioId,
+      ...ids,
+    );
+    return true;
   }
 
   async importarEnderecos(remotos: Endereco[]): Promise<void> {

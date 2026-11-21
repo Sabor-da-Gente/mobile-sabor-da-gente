@@ -26,3 +26,13 @@ export function avisarNovoItem(): void {
   for (const ouvinte of aoEnfileirar) ouvinte();
   avisarFilaMudou();
 }
+
+const aoAtualizarDados = new Set<Ouvinte>();
+
+export function ouvirDadosAtualizados(ouvinte: Ouvinte): () => void {
+  return inscrever(aoAtualizarDados, ouvinte);
+}
+
+export function avisarDadosAtualizados(): void {
+  for (const ouvinte of aoAtualizarDados) ouvinte();
+}

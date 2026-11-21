@@ -9,10 +9,12 @@ import { aoVoltarConexao, onlineAgora } from '@/services/conexao';
 import { supabase } from '@/services/supabase';
 
 import { ouvirNovosItens } from './eventos';
-import { SincronizadorService } from './SincronizadorService';
+import { atualizarDoServidor } from './atualizarDoServidor';
+import { type ResultadoSincronizacao, SincronizadorService } from './SincronizadorService';
 
 export function iniciarSincronizador(db: SQLiteDatabase): {
   sincronizador: SincronizadorService;
+  atualizar: () => Promise<ResultadoSincronizacao>;
   encerrar: () => void;
 } {
   registrarOperacoesPerfil();
@@ -25,23 +27,33 @@ export function iniciarSincronizador(db: SQLiteDatabase): {
     online: onlineAgora,
   });
 
+  const atualizar = async (): Promise<ResultadoSincronizacao> => {
+    const resultado = await sincronizador.agora();
+    if (resultado === 'concluida') {
+      const usuario = await usuarioAtual();
+      if (usuario) await atualizarDoServidor(db, usuario);
+    }
+    return resultado;
+  };
+
   const appState = AppState.addEventListener('change', (estado) => {
-    if (estado === 'active') void sincronizador.agora();
+    if (estado === 'active') void atualizar();
   });
   const auth = supabase.auth.onAuthStateChange((evento) => {
-    if (evento === 'SIGNED_IN') void sincronizador.agora();
+    if (evento === 'SIGNED_IN') setTimeout(() => void atualizar(), 0);
   });
   const cancelamentos = [
-    aoVoltarConexao(() => void sincronizador.agora()),
+    aoVoltarConexao(() => void atualizar()),
     ouvirNovosItens(() => void sincronizador.sincronizar()),
     () => appState.remove(),
     () => auth.data.subscription.unsubscribe(),
   ];
 
-  void sincronizador.agora();
+  void atualizar();
 
   return {
     sincronizador,
+    atualizar,
     encerrar: () => {
       sincronizador.parar();
       for (const cancelar of cancelamentos) cancelar();

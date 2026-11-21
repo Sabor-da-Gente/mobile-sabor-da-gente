@@ -17,10 +17,7 @@ import { SqliteFilaRepository } from '@/repositories/sqlite/SqliteFilaRepository
 import { ouvirFila } from '@/services/sincronizacao/eventos';
 import { iniciarSincronizador } from '@/services/sincronizacao/iniciarSincronizador';
 import { buscarAoDescartar } from '@/services/sincronizacao/operacoes';
-import type {
-  ResultadoSincronizacao,
-  SincronizadorService,
-} from '@/services/sincronizacao/SincronizadorService';
+import type { ResultadoSincronizacao } from '@/services/sincronizacao/SincronizadorService';
 
 type SyncContextType = {
   online: boolean;
@@ -42,16 +39,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const { online } = useConexao();
 
   const fila = useMemo(() => new SqliteFilaRepository(db), [db]);
-  const sincronizador = useRef<SincronizadorService | null>(null);
+  const atualizar = useRef<(() => Promise<ResultadoSincronizacao>) | null>(null);
   const [resumo, setResumo] = useState({ pendentes: 0, erros: 0 });
   const [versao, setVersao] = useState(0);
 
   useEffect(() => {
-    const { sincronizador: instancia, encerrar } = iniciarSincronizador(db);
-    sincronizador.current = instancia;
+    const iniciado = iniciarSincronizador(db);
+    atualizar.current = iniciado.atualizar;
     return () => {
-      sincronizador.current = null;
-      encerrar();
+      atualizar.current = null;
+      iniciado.encerrar();
     };
   }, [db]);
 
@@ -77,7 +74,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [fila, usuarioId]);
 
   const sincronizarAgora = useCallback(async (): Promise<ResultadoSincronizacao> => {
-    return sincronizador.current ? sincronizador.current.agora() : 'interrompida';
+    return atualizar.current ? atualizar.current() : 'interrompida';
   }, []);
 
   const listarFila = useCallback(
