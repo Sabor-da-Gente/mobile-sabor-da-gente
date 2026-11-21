@@ -1,20 +1,10 @@
 import { ItemPizza, ItemProduto, type ItemCarrinho } from '@/models/ItemCarrinho';
-import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
-import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import { supabase } from '@/services/supabase';
-import type {
-  EventoStatus,
-  FormaPagamento,
-  ItemPedido,
-  NovoPedido,
-  Pedido,
-  StatusPedido,
-  TipoEntrega,
-} from '@/types';
+import type { FormaPagamento, ItemPedido, StatusPedido, TipoEntrega } from '@/types';
 
-import { erroAmigavel, exigirUsuario, usuarioAtual } from './util';
+import { erroAmigavel } from './util';
 
-const PAGAMENTO_PARA_BANCO: Record<FormaPagamento, string> = {
+export const PAGAMENTO_PARA_BANCO: Record<FormaPagamento, string> = {
   Pix: 'pix',
   Dinheiro: 'dinheiro',
   Cartão: 'cartao',
@@ -27,8 +17,8 @@ const PAGAMENTO_DO_BANCO: Record<string, FormaPagamento> = {
 };
 
 const SELECT =
-  'id, numero, cliente_nome, cliente_telefone, tipo_entrega, endereco_id, endereco_entrega, ' +
-  'forma_pagamento, troco_para, subtotal, taxa_entrega, total, status, criado_em, ' +
+  'id, numero, chave_cliente, cliente_nome, cliente_telefone, tipo_entrega, endereco_entrega, ' +
+  'forma_pagamento, troco_para, subtotal, desconto, taxa_entrega, total, status, criado_em, ' +
   'itens_pedido(id, tipo, nome, sabores, quantidade, preco_unitario, observacao, itens_pedido_adicionais(nome)), ' +
   'pedido_status_historico(id, status, criado_em)';
 
@@ -43,29 +33,53 @@ type LinhaItem = {
   itens_pedido_adicionais: { nome: string }[] | null;
 };
 
-type LinhaHistorico = { id: number; status: StatusPedido; criado_em: string };
-
 type LinhaPedido = {
   id: string;
   numero: number;
+  chave_cliente: string | null;
   cliente_nome: string;
   cliente_telefone: string;
   tipo_entrega: TipoEntrega;
-  endereco_id: number | null;
   endereco_entrega: string | null;
   forma_pagamento: string;
   troco_para: number | null;
   subtotal: number | null;
+  desconto: number | null;
   taxa_entrega: number | null;
   total: number;
   status: StatusPedido;
   criado_em: string;
   itens_pedido: LinhaItem[] | null;
-  pedido_status_historico: LinhaHistorico[] | null;
+  pedido_status_historico: { id: number; status: StatusPedido; criado_em: string }[] | null;
 };
 
-/** Formato que a função criar_pedido do banco espera. */
-function paraItemRpc(item: ItemCarrinho) {
+export type ItemRemoto = ItemPedido & { tipo: 'produto' | 'pizza' };
+
+export type PedidoRemoto = {
+  idRemoto: string;
+  numero: number;
+  chaveCliente: string | null;
+  clienteNome: string;
+  telefone: string;
+  tipoEntrega: TipoEntrega;
+  endereco: string;
+  pagamento: FormaPagamento;
+  trocoParaCentavos: number | null;
+  subtotalCentavos: number;
+  descontoCentavos: number;
+  taxaEntregaCentavos: number;
+  totalCentavos: number;
+  status: StatusPedido;
+  criadoEm: string;
+  itens: ItemRemoto[];
+  historico: { idRemoto: number; status: StatusPedido; em: string }[];
+};
+
+export function paraIsoLocal(data: string): string {
+  return new Date(data).toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+export function paraItemRpc(item: ItemCarrinho) {
   const observacao = item.observacao ?? undefined;
 
   if (item instanceof ItemPizza) {
@@ -85,163 +99,74 @@ function paraItemRpc(item: ItemCarrinho) {
   throw new Error('Tipo de item desconhecido.');
 }
 
-function paraPedido(linha: LinhaPedido): Pedido {
-  const itens: ItemPedido[] = [...(linha.itens_pedido ?? [])]
-    .sort((a, b) => a.id - b.id)
-    .map((i) => ({
-      // No banco o nome da pizza já traz os adicionais ("Pizza Grande (Tradicional) + Bacon").
-      nome: i.tipo === 'pizza' ? i.nome.split(' + ')[0] : i.nome,
-      sabores: i.sabores ?? [],
-      adicionais: (i.itens_pedido_adicionais ?? []).map((a) => a.nome),
-      observacao: i.observacao,
-      precoCentavos: i.preco_unitario,
-      quantidade: i.quantidade,
-    }));
+export type ItemRpc = ReturnType<typeof paraItemRpc>;
 
-  const historico: EventoStatus[] = [...(linha.pedido_status_historico ?? [])]
-    .sort((a, b) => a.id - b.id)
-    .map((h) => ({ status: h.status, em: h.criado_em }));
-
+function paraRemoto(linha: LinhaPedido): PedidoRemoto {
   const taxa = linha.taxa_entrega ?? 0;
+  const desconto = linha.desconto ?? 0;
 
   return {
-    // O número do pedido é o identificador usado pelo app (único no banco).
-    id: linha.numero,
-    numero: String(linha.numero),
+    idRemoto: linha.id,
+    numero: linha.numero,
+    chaveCliente: linha.chave_cliente,
     clienteNome: linha.cliente_nome,
     telefone: linha.cliente_telefone,
     tipoEntrega: linha.tipo_entrega,
-    enderecoId: linha.endereco_id,
     endereco: linha.endereco_entrega ?? '',
     pagamento: PAGAMENTO_DO_BANCO[linha.forma_pagamento] ?? 'Pix',
     trocoParaCentavos: linha.troco_para,
-    itens,
-    subtotalCentavos: linha.subtotal ?? linha.total - taxa,
+    subtotalCentavos: linha.subtotal ?? linha.total + desconto - taxa,
+    descontoCentavos: desconto,
     taxaEntregaCentavos: taxa,
     totalCentavos: linha.total,
     status: linha.status,
-    historico,
-    criadoEm: linha.criado_em,
-    sincronizado: true,
+    criadoEm: paraIsoLocal(linha.criado_em),
+    itens: [...(linha.itens_pedido ?? [])]
+      .sort((a, b) => a.id - b.id)
+      .map((i) => ({
+        tipo: i.tipo === 'pizza' ? 'pizza' : 'produto',
+        nome: i.tipo === 'pizza' ? i.nome.split(' + ')[0] : i.nome,
+        sabores: i.sabores ?? [],
+        adicionais: (i.itens_pedido_adicionais ?? []).map((a) => a.nome),
+        observacao: i.observacao,
+        precoCentavos: i.preco_unitario,
+        quantidade: i.quantidade,
+      })),
+    historico: [...(linha.pedido_status_historico ?? [])]
+      .sort((a, b) => a.id - b.id)
+      .map((h) => ({ idRemoto: h.id, status: h.status, em: paraIsoLocal(h.criado_em) })),
   };
 }
 
-export class SupabasePedidoRepository implements PedidoRepository {
-  constructor(
-    private readonly carrinho: CarrinhoRepository,
-    private readonly idRemotoDoEndereco: (idLocal: number) => Promise<number | null>,
-  ) {}
-
-  async criar(novo: NovoPedido, itens: ItemCarrinho[]): Promise<Pedido> {
-    const usuario = await exigirUsuario('Entre na sua conta para fazer o pedido.');
-    await this.atualizarPerfil(usuario.id, novo);
-
-    let enderecoRemoto: number | null = null;
-    if (novo.tipoEntrega === 'entrega' && novo.enderecoId !== null) {
-      enderecoRemoto = await this.idRemotoDoEndereco(novo.enderecoId);
-      if (enderecoRemoto === null) {
-        throw new Error('Este endereço ainda está sendo enviado. Aguarde a conexão e tente de novo.');
-      }
-    }
-
-    const { data, error } = await supabase.rpc('criar_pedido', {
-      p_itens: itens.map(paraItemRpc),
-      p_tipo_entrega: novo.tipoEntrega,
-      p_forma_pagamento: PAGAMENTO_PARA_BANCO[novo.pagamento],
-      p_endereco_id: enderecoRemoto,
-      p_troco_para: novo.trocoParaCentavos,
-      p_cupom: null,
-      p_observacao: null,
-    });
-    if (error) throw erroAmigavel(error);
-
-    await this.carrinho.limpar().catch((e) => console.error('Erro ao esvaziar o carrinho:', e));
-
-    const numero = (data as { numero: number }).numero;
-    const pedido = await this.buscar(numero).catch(() => null);
-    if (pedido) return pedido;
-
-    const agora = new Date().toISOString();
-    return {
-      ...novo,
-      id: numero,
-      numero: String(numero),
-      itens: [],
-      status: 'recebido',
-      historico: [{ status: 'recebido', em: agora }],
-      criadoEm: agora,
-      sincronizado: true,
-    };
-  }
-
-  async listar(): Promise<Pedido[]> {
-    const usuario = await usuarioAtual();
-    if (!usuario) return [];
-
+export class SupabasePedidoRepository {
+  async listar(usuarioId: string): Promise<PedidoRemoto[]> {
     const { data, error } = await supabase
       .from('pedidos')
       .select(SELECT)
-      .eq('cliente_id', usuario.id)
+      .eq('cliente_id', usuarioId)
       .order('criado_em', { ascending: false });
     if (error) throw erroAmigavel(error);
-    return (data as unknown as LinhaPedido[]).map(paraPedido);
+    return (data as unknown as LinhaPedido[]).map(paraRemoto);
   }
 
-  async buscar(id: number): Promise<Pedido | null> {
-    const usuario = await usuarioAtual();
-    if (!usuario) return null;
-
+  async buscar(usuarioId: string, idRemoto: string): Promise<PedidoRemoto | null> {
     const { data, error } = await supabase
       .from('pedidos')
       .select(SELECT)
-      .eq('cliente_id', usuario.id)
-      .eq('numero', id)
+      .eq('cliente_id', usuarioId)
+      .eq('id', idRemoto)
       .maybeSingle();
     if (error) throw erroAmigavel(error);
-    return data ? paraPedido(data as unknown as LinhaPedido) : null;
+    return data ? paraRemoto(data as unknown as LinhaPedido) : null;
   }
 
-  async registrarStatus(): Promise<boolean> {
-    return false;
-  }
-
-  async cancelar(id: number): Promise<boolean> {
-    const usuario = await usuarioAtual();
-    if (!usuario) return false;
-
-    const { data: pedido, error: erroBusca } = await supabase
-      .from('pedidos')
-      .select('id')
-      .eq('cliente_id', usuario.id)
-      .eq('numero', id)
-      .maybeSingle();
-    if (erroBusca) throw erroAmigavel(erroBusca);
-    if (!pedido) return false;
-
-    const { error } = await supabase.rpc('cancelar_pedido', { p_pedido_id: pedido.id });
+  async cancelar(idRemoto: string): Promise<boolean> {
+    const { error } = await supabase.rpc('cancelar_pedido', { p_pedido_id: idRemoto });
     if (error) {
       if (error.hint === 'TRANSICAO_INVALIDA' || error.hint === 'NAO_ENCONTRADO') return false;
       throw erroAmigavel(error);
     }
     return true;
   }
-
-  async excluir(): Promise<void> {
-    throw new Error('Pedidos enviados à pizzaria não podem ser apagados do histórico.');
-  }
-
-  private async atualizarPerfil(usuarioId: string, novo: NovoPedido): Promise<void> {
-    const { data } = await supabase
-      .from('perfis')
-      .select('nome, telefone')
-      .eq('id', usuarioId)
-      .maybeSingle();
-    if (data && data.nome === novo.clienteNome && data.telefone === novo.telefone) return;
-
-    const { error } = await supabase
-      .from('perfis')
-      .update({ nome: novo.clienteNome, telefone: novo.telefone })
-      .eq('id', usuarioId);
-    if (error) throw erroAmigavel(error);
-  }
 }
+

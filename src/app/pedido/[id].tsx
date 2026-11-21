@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -14,13 +14,14 @@ import { AvisoOffline } from '@/components/aviso-offline';
 import { SeloPendente } from '@/components/selo-pendente';
 import { LinhaDoTempo } from '@/components/linha-do-tempo';
 import { Paleta } from '@/constants/paleta';
+import { useSync } from '@/context/SyncContext';
 import { useConsulta } from '@/hooks/use-consulta';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { buscarPedido, cancelarPedido } from '@/services/pedidoService';
 import { finalizado, podeCancelar } from '@/services/StatusService';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
-import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
+import { COR_STATUS, ROTULO_STATUS, formatarDataHora, tituloPedido } from '@/utils/pedido';
 import { voltarOu } from '@/utils/rotas';
 
 const voltar = () => voltarOu('/');
@@ -41,6 +42,7 @@ export default function PedidoDetalheScreen() {
   }, [pedidoRepo, id]);
   const { dados, carregando, recarregar } = useConsulta(carregar);
   const pedido = dados ?? undefined;
+  const erroEnvio = useErroEnvio(Number(id), recarregar);
   const acompanhando = pedido !== undefined && !finalizado(pedido);
   useFocusEffect(
     useCallback(() => {
@@ -55,7 +57,7 @@ export default function PedidoDetalheScreen() {
 
     const confirmou = await confirmar(
       'Cancelar pedido',
-      `Deseja cancelar o pedido #${pedido.numero}?`,
+      `Deseja cancelar o ${tituloPedido(pedido).toLowerCase()}?`,
       'Cancelar pedido',
       'Voltar',
     );
@@ -68,7 +70,7 @@ export default function PedidoDetalheScreen() {
       const cancelado = await cancelarPedido(pedidoRepo, pedido.id);
 
       if (cancelado) {
-        avisar('Pedido cancelado', `O pedido #${pedido.numero} foi cancelado.`);
+        avisar('Pedido cancelado', `${tituloPedido(pedido)} foi cancelado.`);
       } else {
         avisar(
           'Não foi possível cancelar',
@@ -116,7 +118,7 @@ export default function PedidoDetalheScreen() {
 
         <View style={styles.cabecalho}>
           <View style={styles.cabecalhoTexto}>
-            <Text style={styles.titulo}>Pedido #{pedido.numero}</Text>
+            <Text style={styles.titulo}>{tituloPedido(pedido)}</Text>
             <Text style={styles.data}>{formatarDataHora(pedido.criadoEm)}</Text>
             <SeloPendente sincronizado={pedido.sincronizado} />
           </View>
@@ -127,6 +129,21 @@ export default function PedidoDetalheScreen() {
         </View>
 
         <AvisoOffline />
+
+        {erroEnvio && (
+          <View style={[styles.cartao, styles.cartaoErro]}>
+            <Text style={styles.secao}>Não foi possível enviar</Text>
+            <Text style={styles.linha}>{erroEnvio.mensagem}</Text>
+            <View style={styles.acoes}>
+              <TouchableOpacity onPress={erroEnvio.reenviar}>
+                <Text style={styles.acao}>Tentar de novo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={erroEnvio.descartar}>
+                <Text style={[styles.acao, styles.acaoPerigo]}>Descartar pedido</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <View style={styles.cartao}>
           <Text style={styles.secao}>Acompanhamento</Text>
@@ -196,12 +213,23 @@ export default function PedidoDetalheScreen() {
           )}
 
           <View style={styles.totalLinha}>
-            <Text style={styles.totalRotulo}>Total</Text>
+            <Text style={styles.totalRotulo}>{pedido.sincronizado ? 'Total' : 'Total estimado'}</Text>
             <Text style={styles.total}>{formatarCentavos(pedido.totalCentavos)}</Text>
           </View>
+          {!pedido.sincronizado && (
+            <Text style={styles.dica}>O valor final é calculado pela pizzaria quando o pedido chegar.</Text>
+          )}
+          {pedido.sincronizado &&
+            pedido.totalEstimadoCentavos !== null &&
+            pedido.totalEstimadoCentavos !== pedido.totalCentavos && (
+              <Text style={styles.aviso}>
+                O valor final ficou {formatarCentavos(pedido.totalCentavos)} (estimado no app:{' '}
+                {formatarCentavos(pedido.totalEstimadoCentavos)}).
+              </Text>
+            )}
         </View>
 
-        {podeCancelar(pedido) && (
+        {podeCancelar(pedido) && pedido.sincronizado && (
           <TouchableOpacity
             style={[styles.botaoPrimario, processando && styles.botaoDesabilitado]}
             onPress={cancelar}
@@ -276,5 +304,51 @@ const styles = StyleSheet.create({
   botaoPrimarioTexto: { color: Paleta.textoSobrePrimaria, fontSize: 16, fontWeight: 'bold' },
   botaoDesabilitado: { backgroundColor: Paleta.desabilitado },
   botaoSecundario: { padding: 15, alignItems: 'center', marginTop: 4 },
+  cartaoErro: { borderColor: '#FECDCA', backgroundColor: '#FFFBFA' },
+  acoes: { flexDirection: 'row', gap: 18, marginTop: 10 },
+  acao: { fontSize: 14, fontWeight: 'bold', color: Paleta.primaria },
+  acaoPerigo: { color: '#B42318' },
+  aviso: { fontSize: 13, color: '#B54708', marginTop: 8 },
   botaoSecundarioTexto: { color: '#B42318', fontSize: 14, fontWeight: '600' },
 });
+/** Erro do envio deste pedido na fila, com as ações de tentar de novo ou descartar. */
+function useErroEnvio(idLocal: number, aoMudar: () => void) {
+  const { versao, listarFila, reenviar, descartar } = useSync();
+  const [item, setItem] = useState<{ id: number; mensagem: string } | null>(null);
+
+  useEffect(() => {
+    let ativo = true;
+    listarFila()
+      .then((fila) => {
+        const erro = fila.find(
+          (i) =>
+            i.operacao === 'criar_pedido' &&
+            i.status === 'erro' &&
+            (i.payload as { idLocal?: number }).idLocal === idLocal,
+        );
+        if (ativo) setItem(erro ? { id: erro.id, mensagem: erro.ultimoErro ?? 'Erro desconhecido.' } : null);
+      })
+      .catch((e) => console.error('Erro ao ler a fila:', e));
+    aoMudar();
+    return () => {
+      ativo = false;
+    };
+  }, [versao, listarFila, idLocal, aoMudar]);
+
+  if (!item) return null;
+  return {
+    mensagem: item.mensagem,
+    reenviar: () => reenviar(item.id),
+    descartar: async () => {
+      const confirmou = await confirmar(
+        'Descartar pedido',
+        'O pedido não será enviado à pizzaria e sairá do seu histórico.',
+        'Descartar',
+        'Voltar',
+      );
+      if (!confirmou) return;
+      await descartar(item.id);
+      voltarOu('/pedidos');
+    },
+  };
+}

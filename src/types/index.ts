@@ -60,9 +60,10 @@ export type Pedido = {
   historico: EventoStatus[];
   criadoEm: string;
   sincronizado: boolean;
+  totalEstimadoCentavos: number | null;
 };
 
 export type NovoPedido = Omit<
   Pedido,
-  'id' | 'numero' | 'status' | 'historico' | 'criadoEm' | 'itens' | 'sincronizado'
+  'id' | 'numero' | 'status' | 'historico' | 'criadoEm' | 'itens' | 'sincronizado' | 'totalEstimadoCentavos'
 >;

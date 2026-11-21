@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { CardapioRepository } from '@/repositories/CardapioRepository';
 import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
 import type { FavoritoRepository } from '@/repositories/FavoritoRepository';
+import { OfflinePedidoRepository } from '@/repositories/offline/OfflinePedidoRepository';
 import { OfflinePerfilRepository } from '@/repositories/offline/OfflinePerfilRepository';
 import type { PedidoRepository } from '@/repositories/PedidoRepository';
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
@@ -25,16 +26,11 @@ export function useCarrinhoRepository(): CarrinhoRepository {
 
 export function usePedidoRepository(): PedidoRepository {
   const db = useSQLiteContext();
+  const { user } = useAuth();
+  const id = user?.id ?? null;
   return useMemo(
-    () =>
-      new SupabasePedidoRepository(new SqliteCarrinhoRepository(db), async (idLocal) => {
-        const row = await db.getFirstAsync<{ id_remoto: number | null }>(
-          'SELECT id_remoto FROM enderecos WHERE id = ?',
-          idLocal,
-        );
-        return row?.id_remoto ?? null;
-      }),
-    [db],
+    () => new OfflinePedidoRepository(db, id, new SupabasePedidoRepository()),
+    [db, id],
   );
 }
 

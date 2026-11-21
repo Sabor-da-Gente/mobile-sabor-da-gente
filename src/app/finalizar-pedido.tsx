@@ -16,6 +16,7 @@ import { Carregando, ErroTela } from '@/components/estado-tela';
 import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
+import { useConexao } from '@/hooks/use-conexao';
 import { usePedidoRepository, usePerfilRepository } from '@/hooks/use-repositorios';
 import type { Endereco, Perfil } from '@/models/Perfil';
 import { calcularTotais } from '@/services/PrecoService';
@@ -77,6 +78,7 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
   const { itens, subtotal, recarregar: recarregarCarrinho } = useCarrinho();
   const pedidoRepo = usePedidoRepository();
   const perfilRepo = usePerfilRepository();
+  const { online } = useConexao();
 
   const [nome, setNome] = useState(perfil?.nome ?? '');
   const [telefone, setTelefone] = useState(perfil?.telefone ?? '');
@@ -87,7 +89,6 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
   const [enviando, setEnviando] = useState(false);
 
   const { taxaEntrega, total } = calcularTotais(subtotal, tipoEntrega);
-  // Sem escolha (ou se o escolhido foi removido), vale o principal.
   const endereco =
     enderecos.find((e) => e.id === enderecoId) ?? enderecos.find((e) => e.principal) ?? enderecos[0];
 
@@ -160,7 +161,15 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
     setEnviando(true);
 
     try {
-      const { pedido, enviado } = await criarPedido(
+      if (perfil?.nome !== nome.trim() || perfil?.telefone !== formatarTelefone(telefone)) {
+        await perfilRepo.salvarPerfil({
+          nome: nome.trim(),
+          telefone: formatarTelefone(telefone),
+          email: perfil?.email ?? null,
+        });
+      }
+
+      const pedido = await criarPedido(
         pedidoRepo,
         {
           clienteNome: nome.trim(),
@@ -177,28 +186,15 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
         itens,
       );
 
-      // O repositório já esvaziou o carrinho no banco; aqui só atualiza a tela.
       await recarregarCarrinho();
 
-      // Primeiro pedido (ou dados mudaram): guarda para os próximos.
-      if (perfil?.nome !== nome.trim() || perfil?.telefone !== formatarTelefone(telefone)) {
-        await perfilRepo
-          .salvarPerfil({
-            nome: nome.trim(),
-            telefone: formatarTelefone(telefone),
-            email: perfil?.email ?? null,
-          })
-          .catch((e) => console.error('Erro ao salvar perfil:', e));
-      }
-
       avisar(
-        `Pedido #${pedido.numero} confirmado!`,
-        enviado === false
-          ? 'Seu pedido foi salvo no celular, mas não foi possível enviá-lo à pizzaria agora.'
-          : 'Seu pedido foi registrado.',
+        'Pedido feito!',
+        online
+          ? 'Estamos enviando à pizzaria. Acompanhe o status na próxima tela.'
+          : 'Você está sem internet: o pedido ficou salvo e será enviado à pizzaria quando a conexão voltar.',
       );
 
-      // Fecha carrinho e checkout e abre o pedido: o "Voltar" do detalhe não cai no checkout.
       const detalhe = { pathname: '/pedido/[id]', params: { id: String(pedido.id) } } as const;
       if (router.canDismiss()) {
         router.dismissAll();

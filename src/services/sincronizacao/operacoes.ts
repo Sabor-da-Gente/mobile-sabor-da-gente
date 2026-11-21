@@ -14,12 +14,27 @@ export class FalhaEnvio extends Error {
   }
 }
 
-const operacoes = new Map<string, EnviarOperacao<never>>();
+export type AoDescartar<P> = (payload: P, contexto: ContextoEnvio) => Promise<void>;
 
-export function registrarOperacao<P>(nome: string, enviar: EnviarOperacao<P>): void {
-  operacoes.set(nome, enviar as EnviarOperacao<never>);
+type Registro = { enviar: EnviarOperacao<never>; aoDescartar?: AoDescartar<never> };
+
+const operacoes = new Map<string, Registro>();
+
+export function registrarOperacao<P>(
+  nome: string,
+  enviar: EnviarOperacao<P>,
+  opcoes: { aoDescartar?: AoDescartar<P> } = {},
+): void {
+  operacoes.set(nome, {
+    enviar: enviar as EnviarOperacao<never>,
+    aoDescartar: opcoes.aoDescartar as AoDescartar<never> | undefined,
+  });
 }
 
 export function buscarOperacao(nome: string): EnviarOperacao<unknown> | undefined {
-  return operacoes.get(nome) as EnviarOperacao<unknown> | undefined;
+  return operacoes.get(nome)?.enviar as EnviarOperacao<unknown> | undefined;
+}
+
+export function buscarAoDescartar(nome: string): AoDescartar<unknown> | undefined {
+  return operacoes.get(nome)?.aoDescartar as AoDescartar<unknown> | undefined;
 }
