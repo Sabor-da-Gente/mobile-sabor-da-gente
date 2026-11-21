@@ -2,7 +2,6 @@ import { SupabasePedidoRepository } from '@/repositories/supabase/SupabasePedido
 import { SupabasePerfilRepository } from '@/repositories/supabase/SupabasePerfilRepository';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useMemo } from 'react';
-
 import { useAuth } from '@/context/AuthContext';
 import type { CardapioRepository } from '@/repositories/CardapioRepository';
 import type { CarrinhoRepository } from '@/repositories/CarrinhoRepository';
@@ -26,7 +25,17 @@ export function useCarrinhoRepository(): CarrinhoRepository {
 
 export function usePedidoRepository(): PedidoRepository {
   const db = useSQLiteContext();
-  return useMemo(() => new SupabasePedidoRepository(new SqliteCarrinhoRepository(db)), [db]);
+  return useMemo(
+    () =>
+      new SupabasePedidoRepository(new SqliteCarrinhoRepository(db), async (idLocal) => {
+        const row = await db.getFirstAsync<{ id_remoto: number | null }>(
+          'SELECT id_remoto FROM enderecos WHERE id = ?',
+          idLocal,
+        );
+        return row?.id_remoto ?? null;
+      }),
+    [db],
+  );
 }
 
 export function usePerfilRepository(): PerfilRepository {

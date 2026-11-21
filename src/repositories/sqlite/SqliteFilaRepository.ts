@@ -86,6 +86,39 @@ export class SqliteFilaRepository implements FilaRepository {
     await this.marcar(id, 'erro', mensagem);
   }
 
+  async buscarPendente(usuarioId: string, operacao: string, idLocal: number): Promise<ItemFila | null> {
+    const row = await this.db.getFirstAsync<ItemFilaRow>(
+      `SELECT ${COLUNAS} FROM fila_sincronizacao
+        WHERE usuario_id = ? AND operacao = ? AND status = 'pendente'
+          AND json_extract(payload, '$.idLocal') = ?
+        ORDER BY id DESC LIMIT 1`,
+      usuarioId,
+      operacao,
+      idLocal,
+    );
+    return row ? paraItem(row) : null;
+  }
+
+  async atualizarPayload(id: number, payload: unknown): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE fila_sincronizacao SET payload = ?, atualizado_em = ${AGORA}
+        WHERE id = ? AND status = 'pendente'`,
+      JSON.stringify(payload ?? null),
+      id,
+    );
+  }
+
+  async removerPendentes(usuarioId: string, operacao: string, idLocal: number): Promise<void> {
+    await this.db.runAsync(
+      `DELETE FROM fila_sincronizacao
+        WHERE usuario_id = ? AND operacao = ? AND status = 'pendente'
+          AND json_extract(payload, '$.idLocal') = ?`,
+      usuarioId,
+      operacao,
+      idLocal,
+    );
+  }
+
   async reenviar(id: number): Promise<void> {
     await this.db.runAsync(
       `UPDATE fila_sincronizacao SET status = 'pendente', tentativas = 0, atualizado_em = ${AGORA}

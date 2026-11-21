@@ -77,7 +77,7 @@ export class SqlitePerfilRepository implements PerfilRepository {
     if (id !== undefined) {
       await this.db.runAsync(
         `UPDATE enderecos SET apelido = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?,
-                cidade = ?, uf = ?, cep = ?, referencia = ?
+                cidade = ?, uf = ?, cep = ?, referencia = ?, sincronizado = 0
           WHERE id = ? AND usuario_id = ? AND ativo = 1`,
         ...valores,
         id,
@@ -86,52 +86,118 @@ export class SqlitePerfilRepository implements PerfilRepository {
       return id;
     }
 
-    let novoId = 0;
-    await this.db.withTransactionAsync(async () => {
-      const ativos = await this.db.getFirstAsync<{ total: number }>(
-        'SELECT COUNT(*) AS total FROM enderecos WHERE usuario_id = ? AND ativo = 1',
-        this.usuarioId,
-      );
-      const resultado = await this.db.runAsync(
-        `INSERT INTO enderecos
-           (usuario_id, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        this.usuarioId,
-        ...valores,
-        ativos?.total === 0 ? 1 : 0,
-      );
-      novoId = resultado.lastInsertRowId;
-    });
-    return novoId;
+    const { lastInsertRowId } = await this.db.runAsync(
+      `INSERT INTO enderecos
+         (usuario_id, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+               NOT EXISTS (SELECT 1 FROM enderecos WHERE usuario_id = ?1 AND ativo = 1))`,
+      this.usuarioId,
+      ...valores,
+    );
+    return lastInsertRowId;
   }
 
   async marcarPrincipal(id: number): Promise<void> {
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync(
-        'UPDATE enderecos SET principal = 0 WHERE usuario_id = ? AND principal = 1',
-        this.usuarioId,
-      );
-      await this.db.runAsync(
-        'UPDATE enderecos SET principal = 1 WHERE id = ? AND usuario_id = ? AND ativo = 1',
-        id,
-        this.usuarioId,
-      );
-    });
+    await this.db.runAsync(
+      `UPDATE enderecos SET principal = (id = ?1)
+        WHERE usuario_id = ?2 AND (principal = 1 OR id = ?1)
+          AND EXISTS (SELECT 1 FROM enderecos WHERE id = ?1 AND usuario_id = ?2 AND ativo = 1)`,
+      id,
+      this.usuarioId,
+    );
   }
 
   async removerEndereco(id: number): Promise<void> {
-    await this.db.withTransactionAsync(async () => {
+    await this.db.runAsync(
+      'UPDATE enderecos SET ativo = 0, principal = 0, sincronizado = 0 WHERE id = ? AND usuario_id = ?',
+      id,
+      this.usuarioId,
+    );
+    await this.db.runAsync(
+      `UPDATE enderecos SET principal = 1
+        WHERE id = (SELECT id FROM enderecos WHERE usuario_id = ?1 AND ativo = 1 ORDER BY id DESC LIMIT 1)
+          AND NOT EXISTS (SELECT 1 FROM enderecos WHERE usuario_id = ?1 AND ativo = 1 AND principal = 1)`,
+      this.usuarioId,
+    );
+  }
+
+  async idPrincipal(): Promise<number | null> {
+    const row = await this.db.getFirstAsync<{ id: number }>(
+      'SELECT id FROM enderecos WHERE usuario_id = ? AND ativo = 1 AND principal = 1',
+      this.usuarioId,
+    );
+    return row?.id ?? null;
+  }
+
+  async contarEnderecos(): Promise<number> {
+    const row = await this.db.getFirstAsync<{ total: number }>(
+      'SELECT COUNT(*) AS total FROM enderecos WHERE usuario_id = ?',
+      this.usuarioId,
+    );
+    return row?.total ?? 0;
+  }
+
+  async idRemoto(id: number): Promise<number | null> {
+    const row = await this.db.getFirstAsync<{ id_remoto: number | null }>(
+      'SELECT id_remoto FROM enderecos WHERE id = ? AND usuario_id = ?',
+      id,
+      this.usuarioId,
+    );
+    return row?.id_remoto ?? null;
+  }
+
+  async idsRemotos(): Promise<number[]> {
+    const rows = await this.db.getAllAsync<{ id_remoto: number }>(
+      'SELECT id_remoto FROM enderecos WHERE usuario_id = ? AND id_remoto IS NOT NULL',
+      this.usuarioId,
+    );
+    return rows.map((r) => r.id_remoto);
+  }
+
+  async definirIdRemoto(id: number, idRemoto: number): Promise<void> {
+    await this.db.runAsync(
+      'UPDATE enderecos SET id_remoto = ? WHERE id = ? AND usuario_id = ?',
+      idRemoto,
+      id,
+      this.usuarioId,
+    );
+  }
+
+  async marcarEnderecoSincronizado(id: number): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE enderecos SET sincronizado = 1
+        WHERE id = ?1 AND usuario_id = ?2
+          AND NOT EXISTS (SELECT 1 FROM fila_sincronizacao
+                           WHERE usuario_id = ?2 AND status <> 'enviando'
+                             AND operacao IN ('criar_endereco','editar_endereco','endereco_principal','remover_endereco')
+                             AND json_extract(payload, '$.idLocal') = ?1)`,
+      id,
+      this.usuarioId,
+    );
+  }
+
+  async importarEnderecos(remotos: Endereco[]): Promise<void> {
+    for (const e of remotos) {
+      const d = e.dados;
       await this.db.runAsync(
-        'UPDATE enderecos SET ativo = 0, principal = 0 WHERE id = ? AND usuario_id = ?',
-        id,
+        `INSERT INTO enderecos
+           (usuario_id, id_remoto, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep,
+            referencia, principal, sincronizado)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+         ON CONFLICT (usuario_id, id_remoto) WHERE id_remoto IS NOT NULL DO NOTHING`,
         this.usuarioId,
+        e.id,
+        d.apelido,
+        d.logradouro,
+        d.numero,
+        d.complemento,
+        d.bairro,
+        d.cidade,
+        d.uf,
+        d.cep,
+        d.referencia,
+        e.principal ? 1 : 0,
       );
-      await this.db.runAsync(
-        `UPDATE enderecos SET principal = 1
-          WHERE id = (SELECT id FROM enderecos WHERE usuario_id = ?1 AND ativo = 1 ORDER BY id DESC LIMIT 1)
-            AND NOT EXISTS (SELECT 1 FROM enderecos WHERE usuario_id = ?1 AND ativo = 1 AND principal = 1)`,
-        this.usuarioId,
-      );
-    });
+    }
   }
 }
