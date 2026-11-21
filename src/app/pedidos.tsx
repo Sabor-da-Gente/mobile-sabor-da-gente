@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvisoOffline } from '@/components/aviso-offline';
 import { SeloPendente } from '@/components/selo-pendente';
 import { Paleta } from '@/constants/paleta';
+import { useAtualizarAoPuxar } from '@/hooks/use-atualizar-ao-puxar';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { listarPedidos } from '@/services/pedidoService';
 import { ouvirFila } from '@/services/sincronizacao/eventos';
@@ -47,10 +49,22 @@ export default function PedidosScreen() {
   );
 
   useEffect(() => ouvirFila(() => void carregar()), [carregar]);
+  const recarregar = useCallback(() => void carregar(), [carregar]);
+  const { atualizando, aoPuxar } = useAtualizarAoPuxar(recarregar);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={atualizando}
+            onRefresh={aoPuxar}
+            colors={[Paleta.primaria]}
+            tintColor={Paleta.primaria}
+          />
+        }
+      >
         <TouchableOpacity onPress={() => voltarOu('/')}>
           <Text style={styles.voltar}>‹ Voltar</Text>
         </TouchableOpacity>

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvisoOffline } from '@/components/aviso-offline';
@@ -8,6 +8,7 @@ import { SeloPendente } from '@/components/selo-pendente';
 import { Carregando, ErroTela } from '@/components/estado-tela';
 import { Paleta } from '@/constants/paleta';
 import { useAuth } from '@/context/AuthContext';
+import { useAtualizarAoPuxar } from '@/hooks/use-atualizar-ao-puxar';
 import { useConsultaAoFocar } from '@/hooks/use-consulta';
 import { usePerfilRepository } from '@/hooks/use-repositorios';
 import type { Endereco } from '@/models/Perfil';
@@ -18,6 +19,7 @@ export default function EnderecosScreen() {
   const repo = usePerfilRepository();
   const carregar = useCallback(() => repo.listarEnderecos(), [repo]);
   const { dados: enderecos, carregando, erro, recarregar } = useConsultaAoFocar(carregar);
+  const { atualizando, aoPuxar } = useAtualizarAoPuxar(recarregar);
   const { user, carregando: carregandoAuth } = useAuth();
 
   async function executar(acao: () => Promise<void>) {
@@ -74,7 +76,17 @@ export default function EnderecosScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={atualizando}
+            onRefresh={aoPuxar}
+            colors={[Paleta.primaria]}
+            tintColor={Paleta.primaria}
+          />
+        }
+      >
         <TouchableOpacity onPress={() => voltarOu('/perfil')}>
           <Text style={styles.voltar}>‹ Voltar</Text>
         </TouchableOpacity>

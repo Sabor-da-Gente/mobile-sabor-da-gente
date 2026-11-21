@@ -12,8 +12,27 @@ function paraEndereco(linha: LinhaEndereco): Endereco {
   return Endereco.fromRow({ ...linha, principal: linha.principal ? 1 : 0 });
 }
 
-/** Perfil (tabela perfis) e endereços (tabela enderecos) da conta logada. */
 export class SupabasePerfilRepository implements PerfilRepository {
+  async listarEnderecosDe(usuarioId: string): Promise<Endereco[]> {
+    const { data, error } = await supabase
+      .from('enderecos')
+      .select(COLUNAS)
+      .eq('usuario_id', usuarioId)
+      .eq('ativo', true);
+    if (error) throw erroAmigavel(error);
+    return (data as unknown as LinhaEndereco[]).map(paraEndereco);
+  }
+
+  async buscarPerfilDe(usuarioId: string, email: string | null): Promise<Perfil | null> {
+    const { data, error } = await supabase
+      .from('perfis')
+      .select('nome, telefone')
+      .eq('id', usuarioId)
+      .maybeSingle();
+    if (error) throw erroAmigavel(error);
+    return data ? { nome: data.nome, telefone: data.telefone ?? '', email } : null;
+  }
+
   async buscarPerfil(): Promise<Perfil | null> {
     const usuario = await usuarioAtual();
     if (!usuario) return null;
@@ -81,7 +100,6 @@ export class SupabasePerfilRepository implements PerfilRepository {
       return id;
     }
 
-    // O primeiro endereço vira o principal.
     const { count, error: erroContagem } = await supabase
       .from('enderecos')
       .select('id', { count: 'exact', head: true })
@@ -125,7 +143,6 @@ export class SupabasePerfilRepository implements PerfilRepository {
       .eq('usuario_id', usuario.id);
     if (error) throw erroAmigavel(error);
 
-    // Se o removido era o principal, o primeiro que sobrar assume.
     const restantes = await this.listarEnderecos();
     if (restantes.length > 0 && !restantes.some((e) => e.principal)) {
       await this.marcarPrincipal(restantes[0].id);
