@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvisoOffline } from '@/components/aviso-offline';
 import { useCarrinho } from '@/context/CarrinhoContext';
-import { TAXA_ENTREGA_CENTAVOS } from '@/services/PrecoService';
+import { useTaxaEntrega } from '@/hooks/use-taxa-entrega';
 import { confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { voltarOu } from '@/utils/rotas';
@@ -26,6 +26,7 @@ export default function CarrinhoScreen() {
     limparCarrinho,
     subtotal,
   } = useCarrinho();
+  const taxaEntrega = useTaxaEntrega();
 
   async function confirmarLimpeza() {
     const confirmou = await confirmar(
@@ -136,13 +137,13 @@ export default function CarrinhoScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Taxa de entrega</Text>
-                <Text style={styles.summaryValue}>{formatarCentavos(TAXA_ENTREGA_CENTAVOS)}</Text>
+                <Text style={styles.summaryValue}>{formatarCentavos(taxaEntrega)}</Text>
               </View>
               <Text style={styles.summaryHint}>Retirada no estabelecimento não paga taxa.</Text>
               <View style={[styles.summaryRow, styles.summaryTotalRow]}>
                 <Text style={styles.summaryTotalLabel}>Total com entrega</Text>
                 <Text style={styles.total}>
-                  {formatarCentavos(subtotal + TAXA_ENTREGA_CENTAVOS)}
+                  {formatarCentavos(subtotal + taxaEntrega)}
                 </Text>
               </View>
             </View>
