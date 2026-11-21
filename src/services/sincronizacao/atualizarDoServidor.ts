@@ -1,7 +1,9 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { SqliteFavoritoRepository } from '@/repositories/sqlite/SqliteFavoritoRepository';
 import { SqlitePedidoRepository } from '@/repositories/sqlite/SqlitePedidoRepository';
 import { SqlitePerfilRepository } from '@/repositories/sqlite/SqlitePerfilRepository';
+import { SupabaseFavoritoRepository } from '@/repositories/supabase/SupabaseFavoritoRepository';
 import { SupabasePedidoRepository } from '@/repositories/supabase/SupabasePedidoRepository';
 import { SupabasePerfilRepository } from '@/repositories/supabase/SupabasePerfilRepository';
 import { onlineAgora } from '@/services/conexao';
@@ -29,11 +31,12 @@ async function executar(db: SQLiteDatabase, usuario: UsuarioDaSessao): Promise<b
 
   const perfis = new SupabasePerfilRepository();
   try {
-    const [perfil, enderecos, pedidos] = await comLimite(
+    const [perfil, enderecos, pedidos, favoritos] = await comLimite(
       Promise.all([
         perfis.buscarPerfilDe(usuario.id, usuario.email),
         perfis.listarEnderecosDe(usuario.id),
         new SupabasePedidoRepository().listar(usuario.id),
+        new SupabaseFavoritoRepository().listarDe(usuario.id),
       ]),
       LIMITE_MS,
       'Tempo esgotado ao atualizar os dados.',
@@ -41,10 +44,12 @@ async function executar(db: SQLiteDatabase, usuario: UsuarioDaSessao): Promise<b
 
     const perfilLocal = new SqlitePerfilRepository(db, usuario.id);
     const pedidosLocal = new SqlitePedidoRepository(db, usuario.id);
+    const favoritosLocal = new SqliteFavoritoRepository(db, usuario.id);
     await db.withTransactionAsync(async () => {
       if (perfil) await perfilLocal.atualizarPerfilDoServidor(perfil);
       await perfilLocal.atualizarEnderecosDoServidor(enderecos);
       await pedidosLocal.importar(pedidos);
+      await favoritosLocal.importarDoServidor(favoritos);
     });
     avisarDadosAtualizados();
     return true;

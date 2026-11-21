@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { AlvoFavorito, Favorito, FavoritoRepository } from '@/repositories/FavoritoRepository';
+import { SqliteFilaRepository } from '@/repositories/sqlite/SqliteFilaRepository';
 
 type ProdutoFavoritoRow = {
   favorito_id: number;
@@ -19,6 +20,24 @@ type SaborFavoritoRow = {
   descricao: string | null;
   a_partir_de: number | null;
 };
+
+type FavoritoLocalRow = {
+  id: number;
+  produto_id: number | null;
+  sabor_id: number | null;
+};
+
+type FavoritoImportado = AlvoFavorito & { criadoEm: string };
+
+function chave({ tipo, id }: AlvoFavorito): string {
+  return `${tipo}:${id}`;
+}
+
+function alvoDe(linha: FavoritoLocalRow): AlvoFavorito | null {
+  if (linha.produto_id !== null) return { tipo: 'produto', id: linha.produto_id };
+  if (linha.sabor_id !== null) return { tipo: 'sabor', id: linha.sabor_id };
+  return null;
+}
 
 export class SqliteFavoritoRepository implements FavoritoRepository {
   constructor(
@@ -93,5 +112,48 @@ export class SqliteFavoritoRepository implements FavoritoRepository {
       id,
     );
     return true;
+  }
+
+  async importarDoServidor(remotos: FavoritoImportado[]): Promise<void> {
+    const usuarioId = this.usuarioId;
+    if (!usuarioId) return;
+
+    const naFila = await new SqliteFilaRepository(this.db).listar(usuarioId);
+    const protegidos = new Set(
+      naFila
+        .filter((i) => i.operacao === 'adicionar_favorito' || i.operacao === 'remover_favorito')
+        .map((i) => chave(i.payload as AlvoFavorito)),
+    );
+    const chavesRemotas = new Set(remotos.map(chave));
+
+    const locais = await this.db.getAllAsync<FavoritoLocalRow>(
+      'SELECT id, produto_id, sabor_id FROM favoritos WHERE usuario_id = ?',
+      usuarioId,
+    );
+    const chavesLocais = new Set<string>();
+    for (const linha of locais) {
+      const alvo = alvoDe(linha);
+      if (!alvo) continue;
+      const k = chave(alvo);
+      chavesLocais.add(k);
+      if (!chavesRemotas.has(k) && !protegidos.has(k)) {
+        await this.db.runAsync('DELETE FROM favoritos WHERE id = ?', linha.id);
+      }
+    }
+
+    const novos = remotos
+      .filter((r) => !chavesLocais.has(chave(r)) && !protegidos.has(chave(r)))
+      .sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
+    for (const novo of novos) {
+      const tabela = novo.tipo === 'produto' ? 'produtos' : 'sabores';
+      const coluna = novo.tipo === 'produto' ? 'produto_id' : 'sabor_id';
+      await this.db.runAsync(
+        `INSERT OR IGNORE INTO favoritos (usuario_id, ${coluna}, criado_em)
+         SELECT ?, id, ? FROM ${tabela} WHERE id = ?`,
+        usuarioId,
+        novo.criadoEm,
+        novo.id,
+      );
+    }
   }
 }
