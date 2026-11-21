@@ -6,7 +6,6 @@ export type Categoria = {
   emoji: string;
   descricao: string;
   subtitulo: string;
-  /** Pizza abre o "Monte sua pizza" em vez da lista de produtos. */
   ehPizza: boolean;
 };
 
@@ -28,16 +27,13 @@ export type StatusPedido =
   | 'entregue'
   | 'cancelado';
 
-/** Uma mudança de status, com o horário em que aconteceu. */
 export type EventoStatus = { status: StatusPedido; em: string };
 
 export type TipoEntrega = 'entrega' | 'retirada';
 
 export type FormaPagamento = 'Pix' | 'Dinheiro' | 'Cartão';
 
-/** Item como foi vendido: nomes e preços da época do pedido. */
 export type ItemPedido = {
-  /** "Esfiha de Carne" ou "Pizza Grande · Massa Fina". */
   nome: string;
   sabores: string[];
   adicionais: string[];
@@ -52,7 +48,6 @@ export type Pedido = {
   clienteNome: string;
   telefone: string;
   tipoEntrega: TipoEntrega;
-  /** Endereço salvo usado na entrega; `endereco` guarda o texto da época. */
   enderecoId: number | null;
   endereco: string;
   pagamento: FormaPagamento;
@@ -62,10 +57,12 @@ export type Pedido = {
   taxaEntregaCentavos: number;
   totalCentavos: number;
   status: StatusPedido;
-  /** Da mais antiga para a mais recente; a primeira é `recebido`. */
   historico: EventoStatus[];
   criadoEm: string;
+  sincronizado: boolean;
 };
 
-/** Dados do pedido sem os itens: eles vêm direto do carrinho. */
-export type NovoPedido = Omit<Pedido, 'id' | 'numero' | 'status' | 'historico' | 'criadoEm' | 'itens'>;
+export type NovoPedido = Omit<
+  Pedido,
+  'id' | 'numero' | 'status' | 'historico' | 'criadoEm' | 'itens' | 'sincronizado'
+>;

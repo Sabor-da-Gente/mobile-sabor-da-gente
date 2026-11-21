@@ -26,36 +26,16 @@ const PAGAMENTO_DO_BANCO: Record<FormaPagamentoRow, FormaPagamento> = {
   dinheiro: 'Dinheiro',
 };
 
-type StatusPedidoRow =
-  | 'realizado'
-  | 'em_preparacao'
-  | 'saiu_para_entrega'
-  | 'pronto_para_retirada'
-  | 'entregue'
-  | 'cancelado';
-
-// O app usa os nomes combinados com a API do admin; o banco, os do plano.
-const STATUS_DO_BANCO: Record<StatusPedidoRow, StatusPedido> = {
-  realizado: 'recebido',
-  em_preparacao: 'em_preparo',
-  saiu_para_entrega: 'saiu_para_entrega',
-  pronto_para_retirada: 'pronto_para_retirada',
-  entregue: 'entregue',
-  cancelado: 'cancelado',
-};
-
-const STATUS_PARA_BANCO = Object.fromEntries(
-  Object.entries(STATUS_DO_BANCO).map(([banco, app]) => [app, banco]),
-) as Record<StatusPedido, StatusPedidoRow>;
-
 type PedidoRow = {
   id: number;
+  numero: number | null;
+  sincronizado: number;
   cliente_nome: string;
   cliente_telefone: string;
   tipo_entrega: TipoEntrega;
   endereco_id: number | null;
   endereco_entrega: string | null;
-  status: StatusPedidoRow;
+  status: StatusPedido;
   forma_pagamento: FormaPagamentoRow;
   troco_para: number | null;
   subtotal: number;
@@ -76,7 +56,7 @@ type ItemRow = {
 
 type NomeRow = { item_id: number; nome: string };
 
-type HistoricoRow = { pedido_id: number; status: StatusPedidoRow; criado_em: string };
+type HistoricoRow = { pedido_id: number; status: StatusPedido; criado_em: string };
 
 const SELECT_ITENS =
   'SELECT id, pedido_id, tipo, descricao, observacao, quantidade, preco_unitario FROM itens_pedido';
@@ -112,11 +92,10 @@ export class SqlitePedidoRepository implements PedidoRepository {
       }
 
       await this.db.runAsync(
-        "INSERT INTO pedido_status_historico (pedido_id, status) VALUES (?, 'realizado')",
+        "INSERT INTO pedido_status_historico (pedido_id, status) VALUES (?, 'recebido')",
         id,
       );
 
-      // O carrinho só esvazia se o pedido inteiro foi gravado.
       await this.db.runAsync('DELETE FROM carrinho_itens');
     });
 
@@ -124,8 +103,6 @@ export class SqlitePedidoRepository implements PedidoRepository {
     if (!pedido) throw new Error(`Pedido ${id} não encontrado após salvar`);
     return pedido;
   }
-
-  /** Snapshot: nomes e preços copiados, para o histórico não mudar com o cardápio. */
   private async gravarItem(pedidoId: number, item: ItemCarrinho): Promise<void> {
     const pizza = item instanceof ItemPizza ? item : null;
     const { lastInsertRowId: itemId } = await this.db.runAsync(
@@ -184,13 +161,12 @@ export class SqlitePedidoRepository implements PedidoRepository {
     const doItem = `WHERE item_id IN (SELECT id FROM itens_pedido ${filtro})`;
     const [itens, sabores, adicionais, historico] = await Promise.all([
       this.db.getAllAsync<ItemRow>(`${SELECT_ITENS} ${filtro} ORDER BY id`, ...params),
-      // rowid mantém a ordem em que foram escolhidos.
       this.db.getAllAsync<NomeRow>(
-        `SELECT item_id, nome FROM itens_pedido_sabores ${doItem} ORDER BY rowid`,
+        `SELECT item_id, nome FROM itens_pedido_sabores ${doItem} ORDER BY id`,
         ...params,
       ),
       this.db.getAllAsync<NomeRow>(
-        `SELECT item_id, nome FROM itens_pedido_adicionais ${doItem} ORDER BY rowid`,
+        `SELECT item_id, nome FROM itens_pedido_adicionais ${doItem} ORDER BY id`,
         ...params,
       ),
       this.db.getAllAsync<HistoricoRow>(
@@ -212,16 +188,16 @@ export class SqlitePedidoRepository implements PedidoRepository {
     await this.db.withTransactionAsync(async () => {
       const resultado = await this.db.runAsync(
         'UPDATE pedidos SET status = ? WHERE id = ? AND status = ?',
-        STATUS_PARA_BANCO[para],
+        para,
         id,
-        STATUS_PARA_BANCO[de],
+        de,
       );
       mudou = resultado.changes > 0;
       if (mudou) {
         await this.db.runAsync(
           'INSERT INTO pedido_status_historico (pedido_id, status, criado_em) VALUES (?, ?, ?)',
           id,
-          STATUS_PARA_BANCO[para],
+          para,
           em,
         );
       }
@@ -233,7 +209,7 @@ export class SqlitePedidoRepository implements PedidoRepository {
     let cancelou = false;
     await this.db.withTransactionAsync(async () => {
       const resultado = await this.db.runAsync(
-        "UPDATE pedidos SET status = 'cancelado' WHERE id = ? AND status = 'realizado'",
+        "UPDATE pedidos SET status = 'cancelado' WHERE id = ? AND status = 'recebido'",
         id,
       );
       cancelou = resultado.changes > 0;
@@ -248,7 +224,6 @@ export class SqlitePedidoRepository implements PedidoRepository {
   }
 
   async excluir(id: number): Promise<void> {
-    // Itens e histórico saem junto (ON DELETE CASCADE).
     await this.db.runAsync('DELETE FROM pedidos WHERE id = ?', id);
   }
 }
@@ -262,7 +237,7 @@ function paraPedido(
 ): Pedido {
   return {
     id: row.id,
-    numero: String(row.id).padStart(4, '0'),
+    numero: row.numero !== null ? String(row.numero) : String(row.id).padStart(4, '0'),
     clienteNome: row.cliente_nome,
     telefone: row.cliente_telefone,
     tipoEntrega: row.tipo_entrega,
@@ -276,11 +251,12 @@ function paraPedido(
     subtotalCentavos: row.subtotal,
     taxaEntregaCentavos: row.taxa_entrega,
     totalCentavos: row.total,
-    status: STATUS_DO_BANCO[row.status],
+    status: row.status,
     historico: historico
       .filter((h) => h.pedido_id === row.id)
-      .map((h): EventoStatus => ({ status: STATUS_DO_BANCO[h.status], em: h.criado_em })),
+      .map((h): EventoStatus => ({ status: h.status, em: h.criado_em })),
     criadoEm: row.criado_em,
+    sincronizado: row.sincronizado === 1,
   };
 }
 
@@ -289,13 +265,11 @@ function paraItem(item: ItemRow, sabores: NomeRow[], adicionais: NomeRow[]): Ite
   let nomesSabores = nomesDe(sabores);
   let observacao = item.observacao;
 
-  // Pedidos feitos antes da Etapa 4 guardavam os sabores como JSON na observação.
   if (item.tipo === 'pizza' && nomesSabores.length === 0 && observacao?.startsWith('[')) {
     try {
       nomesSabores = JSON.parse(observacao) as string[];
       observacao = null;
     } catch {
-      // Não era JSON: é uma observação de verdade.
     }
   }
 

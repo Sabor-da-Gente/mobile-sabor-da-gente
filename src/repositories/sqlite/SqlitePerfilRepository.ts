@@ -10,21 +10,28 @@ import {
 import type { PerfilRepository } from '@/repositories/PerfilRepository';
 
 const COLUNAS_ENDERECO =
-  'id, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal';
+  'id, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal, sincronizado';
 
 export class SqlitePerfilRepository implements PerfilRepository {
-  constructor(private readonly db: SQLiteDatabase) {}
+  constructor(
+    private readonly db: SQLiteDatabase,
+    private readonly usuarioId: string,
+  ) {}
 
   async buscarPerfil(): Promise<Perfil | null> {
-    return this.db.getFirstAsync<PerfilRow>('SELECT nome, telefone, email FROM perfil WHERE id = 1');
+    return this.db.getFirstAsync<PerfilRow>(
+      'SELECT nome, telefone, email FROM perfil WHERE usuario_id = ?',
+      this.usuarioId,
+    );
   }
 
   async salvarPerfil(perfil: Perfil): Promise<void> {
     await this.db.runAsync(
-      `INSERT INTO perfil (id, nome, telefone, email) VALUES (1, ?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET
+      `INSERT INTO perfil (usuario_id, nome, telefone, email) VALUES (?, ?, ?, ?)
+       ON CONFLICT (usuario_id) DO UPDATE SET
          nome = excluded.nome, telefone = excluded.telefone, email = excluded.email,
          atualizado_em = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+      this.usuarioId,
       perfil.nome,
       perfil.telefone,
       perfil.email,
@@ -33,15 +40,18 @@ export class SqlitePerfilRepository implements PerfilRepository {
 
   async listarEnderecos(): Promise<Endereco[]> {
     const rows = await this.db.getAllAsync<EnderecoRow>(
-      `SELECT ${COLUNAS_ENDERECO} FROM enderecos WHERE ativo = 1 ORDER BY principal DESC, id DESC`,
+      `SELECT ${COLUNAS_ENDERECO} FROM enderecos
+        WHERE usuario_id = ? AND ativo = 1 ORDER BY principal DESC, id DESC`,
+      this.usuarioId,
     );
     return rows.map(Endereco.fromRow);
   }
 
   async buscarEndereco(id: number): Promise<Endereco | null> {
     const row = await this.db.getFirstAsync<EnderecoRow>(
-      `SELECT ${COLUNAS_ENDERECO} FROM enderecos WHERE id = ? AND ativo = 1`,
+      `SELECT ${COLUNAS_ENDERECO} FROM enderecos WHERE id = ? AND usuario_id = ? AND ativo = 1`,
       id,
+      this.usuarioId,
     );
     return row ? Endereco.fromRow(row) : null;
   }
@@ -53,9 +63,10 @@ export class SqlitePerfilRepository implements PerfilRepository {
       await this.db.runAsync(
         `UPDATE enderecos SET apelido = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?,
                 cidade = ?, uf = ?, cep = ?, referencia = ?
-          WHERE id = ? AND ativo = 1`,
+          WHERE id = ? AND usuario_id = ? AND ativo = 1`,
         ...valores,
         id,
+        this.usuarioId,
       );
       return id;
     }
@@ -63,12 +74,14 @@ export class SqlitePerfilRepository implements PerfilRepository {
     let novoId = 0;
     await this.db.withTransactionAsync(async () => {
       const ativos = await this.db.getFirstAsync<{ total: number }>(
-        'SELECT COUNT(*) AS total FROM enderecos WHERE ativo = 1',
+        'SELECT COUNT(*) AS total FROM enderecos WHERE usuario_id = ? AND ativo = 1',
+        this.usuarioId,
       );
       const resultado = await this.db.runAsync(
         `INSERT INTO enderecos
-           (apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (usuario_id, apelido, logradouro, numero, complemento, bairro, cidade, uf, cep, referencia, principal)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        this.usuarioId,
         ...valores,
         ativos?.total === 0 ? 1 : 0,
       );
@@ -79,19 +92,30 @@ export class SqlitePerfilRepository implements PerfilRepository {
 
   async marcarPrincipal(id: number): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('UPDATE enderecos SET principal = 0 WHERE principal = 1');
-      await this.db.runAsync('UPDATE enderecos SET principal = 1 WHERE id = ? AND ativo = 1', id);
+      await this.db.runAsync(
+        'UPDATE enderecos SET principal = 0 WHERE usuario_id = ? AND principal = 1',
+        this.usuarioId,
+      );
+      await this.db.runAsync(
+        'UPDATE enderecos SET principal = 1 WHERE id = ? AND usuario_id = ? AND ativo = 1',
+        id,
+        this.usuarioId,
+      );
     });
   }
 
   async removerEndereco(id: number): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('UPDATE enderecos SET ativo = 0, principal = 0 WHERE id = ?', id);
-      // Se era o principal, o mais recente que sobrou assume.
+      await this.db.runAsync(
+        'UPDATE enderecos SET ativo = 0, principal = 0 WHERE id = ? AND usuario_id = ?',
+        id,
+        this.usuarioId,
+      );
       await this.db.runAsync(
         `UPDATE enderecos SET principal = 1
-          WHERE id = (SELECT id FROM enderecos WHERE ativo = 1 ORDER BY id DESC LIMIT 1)
-            AND NOT EXISTS (SELECT 1 FROM enderecos WHERE ativo = 1 AND principal = 1)`,
+          WHERE id = (SELECT id FROM enderecos WHERE usuario_id = ?1 AND ativo = 1 ORDER BY id DESC LIMIT 1)
+            AND NOT EXISTS (SELECT 1 FROM enderecos WHERE usuario_id = ?1 AND ativo = 1 AND principal = 1)`,
+        this.usuarioId,
       );
     });
   }
