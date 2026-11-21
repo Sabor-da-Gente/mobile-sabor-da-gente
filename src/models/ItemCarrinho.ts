@@ -4,9 +4,10 @@ import { precoPizza, problemaNosSabores } from '@/services/PrecoService';
 
 export type TipoItem = 'produto' | 'pizza';
 
-/** Item do carrinho. Valores em centavos. */
 export abstract class ItemCarrinho {
   abstract readonly tipo: TipoItem;
+
+  motivoIndisponivel: string | null = null;
 
   constructor(
     readonly id: number,
@@ -18,11 +19,14 @@ export abstract class ItemCarrinho {
 
   abstract precoUnitario(): number;
 
+  get disponivel(): boolean {
+    return this.motivoIndisponivel === null;
+  }
+
   get sabores(): string[] {
     return [];
   }
 
-  /** Escolhas além dos sabores (massa, adicionais...). */
   extras(): string[] {
     return [];
   }
@@ -31,7 +35,6 @@ export abstract class ItemCarrinho {
     return this.precoUnitario() * this.quantidade;
   }
 
-  /** Uma linha com tudo: "Pizza Grande (Calabresa e Portuguesa) · Massa Fina · + Bacon". */
   descricao(): string {
     const titulo = this.sabores.length > 0 ? `${this.nome} (${this.sabores.join(' e ')})` : this.nome;
     return [titulo, ...this.extras(), ...(this.observacao ? [`Obs.: ${this.observacao}`] : [])].join(' · ');
