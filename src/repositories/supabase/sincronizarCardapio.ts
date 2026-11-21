@@ -43,6 +43,8 @@ type SaborPrecoRemoto = { sabor_id: number; tamanho_id: number; preco: number };
 
 type AdicionalRemoto = { id: number; nome: string; preco: number; ativo: boolean };
 
+type ConfiguracaoRemota = { chave: string; valor: string | number };
+
 let ultimaTentativa = 0;
 let emAndamento: Promise<void> | null = null;
 
@@ -53,7 +55,7 @@ async function buscar<T>(tabela: string, colunas: string): Promise<T[]> {
 }
 
 async function buscarTudo() {
-  const [produtos, tamanhos, massas, sabores, precos, adicionais] = await Promise.all([
+  const [produtos, tamanhos, massas, sabores, precos, adicionais, configuracoes] = await Promise.all([
     buscar<ProdutoRemoto>(
       'produtos',
       'id, categoria_id, nome, descricao, ingredientes, imagem_url, preco, destaque, ativo',
@@ -63,8 +65,9 @@ async function buscarTudo() {
     buscar<SaborRemoto>('sabores', 'id, nome, descricao, ingredientes, imagem_url, destaque, ativo'),
     buscar<SaborPrecoRemoto>('sabor_precos', 'sabor_id, tamanho_id, preco'),
     buscar<AdicionalRemoto>('adicionais', 'id, nome, preco, ativo'),
+    buscar<ConfiguracaoRemota>('configuracoes', 'chave, valor'),
   ]);
-  return { produtos, tamanhos, massas, sabores, precos, adicionais };
+  return { produtos, tamanhos, massas, sabores, precos, adicionais, configuracoes };
 }
 
 async function desativarAusentes(
@@ -216,6 +219,17 @@ async function gravarAdicionais(db: SQLiteDatabase, remotos: AdicionalRemoto[]):
   await desativarAusentes(db, 'adicionais', new Set(remotos.map((a) => a.id)));
 }
 
+async function gravarConfiguracoes(db: SQLiteDatabase, remotos: ConfiguracaoRemota[]): Promise<void> {
+  for (const c of remotos) {
+    await db.runAsync(
+      `INSERT INTO configuracoes (chave, valor) VALUES (?, ?)
+       ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`,
+      c.chave,
+      String(c.valor),
+    );
+  }
+}
+
 async function executar(db: SQLiteDatabase): Promise<void> {
   const remoto = await comLimite(buscarTudo(), LIMITE_MS, 'Tempo esgotado ao sincronizar o cardápio.');
 
@@ -226,6 +240,7 @@ async function executar(db: SQLiteDatabase): Promise<void> {
     await gravarSabores(db, remoto.sabores);
     await gravarPrecos(db, remoto.precos);
     await gravarAdicionais(db, remoto.adicionais);
+    await gravarConfiguracoes(db, remoto.configuracoes);
   });
 }
 
