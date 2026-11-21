@@ -5,6 +5,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { Sincronizacao } from '@/components/sincronizacao';
 import { AuthProvider } from '@/context/AuthContext';
 import { CarrinhoProvider } from '@/context/CarrinhoContext';
 import { FavoritosProvider } from '@/context/FavoritosContext';
@@ -17,12 +18,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      {/* Abre o banco e roda as migrações antes de mostrar qualquer tela. */}
       <AuthProvider>
         <SQLiteProvider databaseName={NOME_BANCO} onInit={migrar}>
+          <Sincronizacao />
           <CarrinhoProvider>
             <FavoritosProvider>
-              {/* Todas as telas usam cabeçalho próprio. */}
               <Stack screenOptions={{ headerShown: false }} />
             </FavoritosProvider>
           </CarrinhoProvider>
