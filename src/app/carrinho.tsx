@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { TAXA_ENTREGA_CENTAVOS } from '@/services/PrecoService';
 import { confirmar } from '@/utils/alerta';
@@ -55,6 +56,8 @@ export default function CarrinhoScreen() {
 
         <Text style={styles.title}>Meu carrinho 🛒</Text>
         <Text style={styles.subtitle}>Confira seus produtos antes de continuar.</Text>
+
+        <AvisoOffline />
 
         {itens.length === 0 ? (
           <View style={styles.empty}>

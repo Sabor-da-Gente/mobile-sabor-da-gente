@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoOffline } from '@/components/aviso-offline';
+import { SeloPendente } from '@/components/selo-pendente';
 import { Paleta } from '@/constants/paleta';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { listarPedidos } from '@/services/pedidoService';
@@ -52,6 +54,8 @@ export default function PedidosScreen() {
 
         <Text style={styles.titulo}>Meus pedidos 📦</Text>
         <Text style={styles.subtitulo}>Acompanhe os pedidos da sua conta.</Text>
+
+        <AvisoOffline />
 
         {carregando && (
           <ActivityIndicator size="large" color={Paleta.primaria} style={styles.loading} />
@@ -99,6 +103,7 @@ export default function PedidosScreen() {
                 </View>
 
                 <Text style={styles.data}>{formatarDataHora(pedido.criadoEm)}</Text>
+                <SeloPendente sincronizado={pedido.sincronizado} />
 
                 <View style={styles.cartaoBase}>
                   <Text style={styles.itens}>
