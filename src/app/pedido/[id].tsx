@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,10 +18,17 @@ import { useConexao } from '@/hooks/use-conexao';
 import { useConsulta } from '@/hooks/use-consulta';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { buscarPedido, cancelarPedido } from '@/services/pedidoService';
+import { ouvirDadosAtualizados, ultimaAtualizacaoDoServidor } from '@/services/sincronizacao/eventos';
 import { finalizado, podeCancelar } from '@/services/StatusService';
 import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
-import { COR_STATUS, ROTULO_STATUS, formatarDataHora, tituloPedido } from '@/utils/pedido';
+import {
+  COR_STATUS,
+  ROTULO_STATUS,
+  formatarDataHora,
+  formatarHora,
+  tituloPedido,
+} from '@/utils/pedido';
 import { voltarOu } from '@/utils/rotas';
 
 const voltar = () => voltarOu('/');
@@ -45,13 +52,8 @@ export default function PedidoDetalheScreen() {
   const erroEnvio = useErroEnvio(Number(id), recarregar);
   const { online } = useConexao();
   const acompanhando = pedido !== undefined && !finalizado(pedido);
-  useFocusEffect(
-    useCallback(() => {
-      if (!acompanhando) return;
-      const timer = setInterval(recarregar, 5000);
-      return () => clearInterval(timer);
-    }, [acompanhando, recarregar]),
-  );
+  useEffect(() => ouvirDadosAtualizados(recarregar), [recarregar]);
+  const atualizadoEm = ultimaAtualizacaoDoServidor();
 
   async function cancelar() {
     if (!pedido) return;
@@ -166,8 +168,15 @@ export default function PedidoDetalheScreen() {
         <View style={styles.cartao}>
           <Text style={styles.secao}>Acompanhamento</Text>
           <LinhaDoTempo pedido={pedido} />
-          {acompanhando && (
-            <Text style={styles.dica}>Atualiza sozinho a cada 5 segundos.</Text>
+          {acompanhando && online && (
+            <Text style={styles.dica}>Atualiza sozinho quando a pizzaria muda o status.</Text>
+          )}
+          {acompanhando && !online && (
+            <Text style={styles.dica}>
+              {atualizadoEm
+                ? `Sem conexão: status de ${formatarHora(atualizadoEm)}.`
+                : 'Sem conexão: mostrando o último status salvo no aparelho.'}
+            </Text>
           )}
         </View>
 
