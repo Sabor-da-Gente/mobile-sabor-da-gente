@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     ScrollView,
@@ -15,9 +15,10 @@ import { SeloPendente } from '@/components/selo-pendente';
 import { Paleta } from '@/constants/paleta';
 import { usePedidoRepository } from '@/hooks/use-repositorios';
 import { listarPedidos } from '@/services/pedidoService';
+import { ouvirFila } from '@/services/sincronizacao/eventos';
 import type { Pedido } from '@/types';
 import { formatarCentavos } from '@/utils/dinheiro';
-import { COR_STATUS, ROTULO_STATUS, formatarDataHora } from '@/utils/pedido';
+import { COR_STATUS, ROTULO_STATUS, formatarDataHora, tituloPedido } from '@/utils/pedido';
 import { voltarOu } from '@/utils/rotas';
 
 export default function PedidosScreen() {
@@ -44,6 +45,8 @@ export default function PedidosScreen() {
       carregar();
     }, [carregar]),
   );
+
+  useEffect(() => ouvirFila(() => void carregar()), [carregar]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -95,7 +98,7 @@ export default function PedidosScreen() {
                 onPress={() => router.push(`/pedido/${pedido.id}`)}
               >
                 <View style={styles.cartaoTopo}>
-                  <Text style={styles.numero}>Pedido #{pedido.numero}</Text>
+                  <Text style={styles.numero}>{tituloPedido(pedido)}</Text>
 
                   <View style={[styles.status, { backgroundColor: COR_STATUS[pedido.status] }]}>
                     <Text style={styles.statusTexto}>{ROTULO_STATUS[pedido.status]}</Text>

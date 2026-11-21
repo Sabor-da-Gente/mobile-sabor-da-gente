@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
+import { registrarOperacoesPedido } from '@/repositories/offline/OfflinePedidoRepository';
 import { registrarOperacoesPerfil } from '@/repositories/offline/OfflinePerfilRepository';
 import { usuarioAtual } from '@/repositories/supabase/util';
 import { SqliteFilaRepository } from '@/repositories/sqlite/SqliteFilaRepository';
@@ -15,6 +16,7 @@ export function iniciarSincronizador(db: SQLiteDatabase): {
   encerrar: () => void;
 } {
   registrarOperacoesPerfil();
+  registrarOperacoesPedido();
 
   const sincronizador = new SincronizadorService({
     fila: new SqliteFilaRepository(db),

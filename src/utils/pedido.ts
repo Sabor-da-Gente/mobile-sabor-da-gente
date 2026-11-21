@@ -1,4 +1,4 @@
-import type { StatusPedido } from '@/types';
+import type { Pedido, StatusPedido } from '@/types';
 
 export const ROTULO_STATUS: Record<StatusPedido, string> = {
   recebido: 'Recebido',
@@ -30,10 +30,13 @@ export function formatarDataHora(iso: string): string {
   return `${dia}/${mes}/${ano} ${hora}:${minuto}`;
 }
 
-/** "14:05:30" */
 export function formatarHora(iso: string): string {
   const data = new Date(iso);
   return [data.getHours(), data.getMinutes(), data.getSeconds()]
     .map((n) => String(n).padStart(2, '0'))
     .join(':');
+}
+
+export function tituloPedido(pedido: Pedido): string {
+  return pedido.numero ? `Pedido #${pedido.numero}` : 'Pedido aguardando envio';
 }

@@ -16,6 +16,7 @@ import type { ItemFila } from '@/repositories/FilaRepository';
 import { SqliteFilaRepository } from '@/repositories/sqlite/SqliteFilaRepository';
 import { ouvirFila } from '@/services/sincronizacao/eventos';
 import { iniciarSincronizador } from '@/services/sincronizacao/iniciarSincronizador';
+import { buscarAoDescartar } from '@/services/sincronizacao/operacoes';
 import type {
   ResultadoSincronizacao,
   SincronizadorService,
@@ -84,7 +85,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [fila, usuarioId],
   );
   const reenviar = useCallback((id: number) => fila.reenviar(id), [fila]);
-  const descartar = useCallback((id: number) => fila.descartar(id), [fila]);
+  const descartar = useCallback(
+    async (id: number) => {
+      const item = usuarioId ? (await fila.listar(usuarioId)).find((i) => i.id === id) : undefined;
+      if (item && item.status !== 'enviando') {
+        await buscarAoDescartar(item.operacao)?.(item.payload, { db, usuarioId: item.usuarioId });
+      }
+      await fila.descartar(id);
+    },
+    [db, fila, usuarioId],
+  );
 
   const valor = useMemo(
     () => ({ online, ...resumo, versao, sincronizarAgora, listarFila, reenviar, descartar }),
