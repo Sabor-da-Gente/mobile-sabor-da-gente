@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvisoOffline } from '@/components/aviso-offline';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { useTaxaEntrega } from '@/hooks/use-taxa-entrega';
-import { confirmar } from '@/utils/alerta';
+import { avisar, confirmar } from '@/utils/alerta';
 import { formatarCentavos } from '@/utils/dinheiro';
 import { voltarOu } from '@/utils/rotas';
 
@@ -27,6 +27,7 @@ export default function CarrinhoScreen() {
     subtotal,
   } = useCarrinho();
   const taxaEntrega = useTaxaEntrega();
+  const indisponiveis = itens.filter((item) => !item.disponivel);
 
   async function confirmarLimpeza() {
     const confirmou = await confirmar(
@@ -38,6 +39,17 @@ export default function CarrinhoScreen() {
     if (confirmou) {
       limparCarrinho();
     }
+  }
+
+  function continuarPedido() {
+    if (indisponiveis.length > 0) {
+      avisar(
+        'Item indisponível',
+        'Remova do carrinho os itens indisponíveis para continuar o pedido.',
+      );
+      return;
+    }
+    router.push('/finalizar-pedido');
   }
 
   if (carregando) {
@@ -76,6 +88,14 @@ export default function CarrinhoScreen() {
           </View>
         ) : (
           <>
+            {indisponiveis.length > 0 && (
+              <View style={styles.warning}>
+                <Text style={styles.warningText}>
+                  Alguns itens saíram do cardápio. Remova-os para continuar o pedido.
+                </Text>
+              </View>
+            )}
+
             {itens.map((item) => (
               <View key={item.id} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
@@ -91,6 +111,9 @@ export default function CarrinhoScreen() {
                     )}
                     {item.observacao && (
                       <Text style={styles.itemDescription}>Obs.: {item.observacao}</Text>
+                    )}
+                    {item.motivoIndisponivel && (
+                      <Text style={styles.unavailable}>{item.motivoIndisponivel}</Text>
                     )}
                     <Text style={styles.unitPrice}>
                       {formatarCentavos(item.precoUnitario())} por unidade
@@ -149,8 +172,8 @@ export default function CarrinhoScreen() {
             </View>
 
             <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => router.push('/finalizar-pedido')}
+              style={[styles.primaryButton, indisponiveis.length > 0 && styles.buttonDisabled]}
+              onPress={continuarPedido}
             >
               <Text style={styles.primaryButtonText}>Continuar pedido</Text>
             </TouchableOpacity>
@@ -186,6 +209,15 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 19, fontWeight: 'bold', color: '#2D2D2D', textAlign: 'center' },
   emptyText: { fontSize: 14, color: '#777777', textAlign: 'center', marginTop: 8, marginBottom: 20 },
+  warning: {
+    backgroundColor: '#FDECEA',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F4C7C3',
+  },
+  warningText: { color: '#B42318', fontSize: 14, fontWeight: '600' },
   itemCard: {
     padding: 16,
     borderRadius: 16,
@@ -198,6 +230,7 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1 },
   itemName: { fontSize: 17, fontWeight: 'bold', color: '#2D2D2D' },
   itemDescription: { fontSize: 13, color: '#777777', marginTop: 5 },
+  unavailable: { fontSize: 13, color: '#B42318', fontWeight: '600', marginTop: 8 },
   unitPrice: { fontSize: 14, color: '#8B1E1E', fontWeight: '600', marginTop: 8 },
   remove: { fontSize: 13, color: '#B42318', fontWeight: '600' },
   itemFooter: {
@@ -240,6 +273,7 @@ const styles = StyleSheet.create({
   total: { fontSize: 21, fontWeight: 'bold', color: '#8B1E1E' },
   primaryButton: { backgroundColor: '#8B1E1E', padding: 16, borderRadius: 14, alignItems: 'center' },
   primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  buttonDisabled: { backgroundColor: '#C9B8A6' },
   clearButton: { padding: 15, alignItems: 'center', marginTop: 4 },
   clearButtonText: { color: '#B42318', fontWeight: '600', fontSize: 14 },
 });

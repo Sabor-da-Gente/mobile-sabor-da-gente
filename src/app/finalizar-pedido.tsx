@@ -100,6 +100,16 @@ function Checkout({ perfil, enderecos }: { perfil: Perfil | null; enderecos: End
       return;
     }
 
+    const indisponiveis = itens.filter((item) => !item.disponivel);
+    if (indisponiveis.length > 0) {
+      const lista = indisponiveis.map((item) => `${item.nome}: ${item.motivoIndisponivel}`).join('\n');
+      avisar(
+        'Item indisponível',
+        `${lista}\n\nVolte ao carrinho e remova os itens indisponíveis para continuar.`,
+      );
+      return;
+    }
+
     if (!nome.trim() || !telefone.trim()) {
       avisar('Dados incompletos', 'Informe seu nome e telefone para continuar.');
       return;
