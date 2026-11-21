@@ -13,8 +13,18 @@ export type ItemFila = {
 
 export type ResumoFila = { pendentes: number; erros: number };
 
+export type OpcoesEnfileirar = {
+  substituirPendentes?: boolean;
+  avisar?: boolean;
+};
+
 export interface FilaRepository {
-  enfileirar(usuarioId: string, operacao: string, payload: unknown): Promise<number>;
+  enfileirar(
+    usuarioId: string,
+    operacao: string,
+    payload: unknown,
+    opcoes?: OpcoesEnfileirar,
+  ): Promise<number>;
   proximo(usuarioId: string): Promise<ItemFila | null>;
   concluir(id: number): Promise<void>;
   adiar(id: number, mensagem: string): Promise<void>;
