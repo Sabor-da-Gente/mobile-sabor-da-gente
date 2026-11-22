@@ -36,3 +36,34 @@ export function confirmar(
     );
   });
 }
+
+export type EscolhaSaida = 'sincronizar' | 'descartar' | 'cancelar';
+
+/**
+ * Pergunta o que fazer ao sair com alterações pendentes.
+ * No celular mostra três botões. Na web, `window.confirm` só tem duas
+ * respostas, então pergunta em duas etapas.
+ */
+export function escolherSaida(titulo: string, mensagem: string): Promise<EscolhaSaida> {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${titulo}\n\n${mensagem}\n\nOK = sincronizar agora. Cancelar = ver outras opções.`)) {
+      return Promise.resolve('sincronizar');
+    }
+    const descartar = window.confirm(
+      'Sair e descartar as alterações pendentes?\n\nElas serão perdidas. Cancelar volta ao app.',
+    );
+    return Promise.resolve(descartar ? 'descartar' : 'cancelar');
+  }
+  return new Promise((resolve) => {
+    Alert.alert(
+      titulo,
+      mensagem,
+      [
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve('cancelar') },
+        { text: 'Sair e descartar', style: 'destructive', onPress: () => resolve('descartar') },
+        { text: 'Sincronizar agora', onPress: () => resolve('sincronizar') },
+      ],
+      { cancelable: true, onDismiss: () => resolve('cancelar') },
+    );
+  });
+}
