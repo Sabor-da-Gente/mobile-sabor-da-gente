@@ -2,13 +2,11 @@ import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps, TabListProps }
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Paleta } from '@/constants/paleta';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
 type PressableRef = ComponentProps<typeof Pressable>['ref'];
 
-const VINHO = '#8B1E1E';
-
-// Versão web das abas (no celular é usado app-tabs.tsx).
 export default function AppTabs() {
   return (
     <Tabs>
@@ -67,14 +65,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Paleta.superficie,
     borderWidth: 1,
-    borderColor: '#F0E3D5',
+    borderColor: Paleta.borda,
   },
   brandText: {
     marginRight: 'auto',
     fontWeight: 'bold',
-    color: VINHO,
+    color: Paleta.primaria,
   },
   pressed: {
     opacity: 0.7,
@@ -85,14 +83,14 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
   },
   tabButtonSelected: {
-    backgroundColor: '#FFF8F0',
+    backgroundColor: Paleta.destaqueSuave,
   },
   tabText: {
     fontSize: 14,
-    color: '#777777',
+    color: Paleta.textoSuave,
   },
   tabTextSelected: {
-    color: VINHO,
+    color: Paleta.primaria,
     fontWeight: 'bold',
   },
 });
