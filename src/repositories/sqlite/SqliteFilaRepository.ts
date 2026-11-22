@@ -147,6 +147,11 @@ export class SqliteFilaRepository implements FilaRepository {
     avisarFilaMudou();
   }
 
+  async descartarDoUsuario(usuarioId: string): Promise<void> {
+    await this.db.runAsync('DELETE FROM fila_sincronizacao WHERE usuario_id = ?', usuarioId);
+    avisarFilaMudou();
+  }
+
   async listar(usuarioId: string): Promise<ItemFila[]> {
     const rows = await this.db.getAllAsync<ItemFilaRow>(
       `SELECT ${COLUNAS} FROM fila_sincronizacao WHERE usuario_id = ? ORDER BY id`,

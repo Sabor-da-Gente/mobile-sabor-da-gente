@@ -35,6 +35,7 @@ export interface FilaRepository {
   removerPendentes(usuarioId: string, operacao: string, idLocal: number): Promise<void>;
   reenviar(id: number): Promise<void>;
   descartar(id: number): Promise<void>;
+  descartarDoUsuario(usuarioId: string): Promise<void>;
   listar(usuarioId: string): Promise<ItemFila[]>;
   resumo(usuarioId: string): Promise<ResumoFila>;
 }

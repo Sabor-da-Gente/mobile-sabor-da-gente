@@ -1,3 +1,4 @@
+import { useSair } from '@/hooks/use-sair';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -323,7 +324,8 @@ function AtalhoPendencias() {
 }
 
 function ContaCard() {
-  const { user, sair } = useAuth();
+  const { user } = useAuth();
+  const sair = useSair();
 
   return (
     <View style={styles.cartao}>

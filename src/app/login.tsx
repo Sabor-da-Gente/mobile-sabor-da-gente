@@ -1,3 +1,5 @@
+import { useSair } from '@/hooks/use-sair';
+import { verificarConexao } from '@/services/conexao';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,13 +31,14 @@ function traduzirErro(mensagem: string): string {
   if (m.includes('signups not allowed') || m.includes('signup is disabled')) return 'O cadastro está desativado no servidor.';
   if (m.includes('database error')) return 'Erro ao criar o perfil no servidor. Avise a equipe.';
   if (m.includes('password')) return 'A senha deve ter pelo menos 6 caracteres.';
-  if (m.includes('network')) return 'Sem conexão. Tente de novo.';
+  if (m.includes('network')) return 'Sem internet. Entrar ou cadastrar exige conexão.';
   return mensagem;
 }
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { user, sair } = useAuth();
+  const { user } = useAuth();
+  const sair = useSair();
 
   const [modo, setModo] = useState<Modo>('entrar');
   const [nome, setNome] = useState('');
@@ -74,6 +77,11 @@ export default function LoginScreen() {
         setErro('A senha deve ter pelo menos 6 caracteres.');
         return;
       }
+    }
+
+    if (!(await verificarConexao())) {
+      setErro('Sem internet. Entrar ou cadastrar exige conexão. Conecte-se e tente de novo.');
+      return;
     }
 
     setEnviando(true);
