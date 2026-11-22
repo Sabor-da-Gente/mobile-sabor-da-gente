@@ -35,7 +35,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - Se o pedido ainda não tinha sido enviado, o cancelamento remove a operação pendente da fila em vez de enfileirar um cancelamento.
 - Ao desativar o modo avião, a fila é enviada sozinha e a faixa some.
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
@@ -55,7 +55,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - Após a sincronização, o pedido chega ao servidor com o endereço correto, sem erro de chave estrangeira.
 - No app, o pedido passa a mostrar o número real e o total calculado pelo banco.
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
@@ -74,7 +74,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - Existe **apenas um** pedido no painel e no app, independentemente de quantas vezes o envio foi repetido.
 - Não aparece pedido duplicado nem erro de conta/chave.
 
-- [ ] Passou  — Observações:
+- [ ] Passou  — Observações: pendente: validar a idempotência no Supabase (migration da api#3)
 
 ---
 
@@ -94,7 +94,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - O app abre sem travar e mostra os dados locais.
 - Com a conexão de volta, a fila é enviada sem intervenção.
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
@@ -111,7 +111,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - O pedido A recebe número menor (ou aparece antes) que o pedido B.
 - Os dois chegam uma única vez, com os itens e totais corretos.
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
@@ -131,7 +131,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - A alteração seguinte (perfil) é enviada normalmente, ou seja, a fila continua.
 - O item com erro pode ser reenviado ou descartado pela tela **Pendências**.
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
@@ -151,7 +151,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - Carrinho e favoritos continuam disponíveis.
 - A tabela da fila existe e funciona (é possível gerar uma pendência offline).
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
@@ -173,7 +173,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - A outra conta não vê nada da anterior.
 - O login sem internet mostra "Sem internet. Entrar ou cadastrar exige conexão."
 
-- [ ] Passou  — Observações:
+- [ ] Passou  — Observações: pendente: executar após o merge do PR da #31
 
 ---
 
@@ -188,7 +188,7 @@ npx expo lint
 **Resultado esperado**
 - Os dois comandos terminam sem erros.
 
-- [ ] Passou  — Observações:
+- [x] Passou  — Observações:
 
 ---
 
