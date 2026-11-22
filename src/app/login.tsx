@@ -8,11 +8,12 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Paleta } from '@/constants/paleta';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/services/supabase';
 
@@ -35,15 +36,6 @@ function traduzirErro(mensagem: string): string {
 export default function LoginScreen() {
   const router = useRouter();
   const { user, sair } = useAuth();
-  const escuro = useColorScheme() === 'dark';
-
-  const cor = {
-    fundo: escuro ? '#121212' : '#FFFFFF',
-    texto: escuro ? '#F2F2F2' : '#1A1A1A',
-    suave: escuro ? '#A0A0A0' : '#666666',
-    borda: escuro ? '#3A3A3A' : '#D0D0D0',
-    destaque: '#C0392B',
-  };
 
   const [modo, setModo] = useState<Modo>('entrar');
   const [nome, setNome] = useState('');
@@ -91,7 +83,6 @@ export default function LoginScreen() {
         if (error) throw error;
         voltar();
       } else {
-        // O trigger do banco cria o perfil com nome e telefone de options.data.
         const { data, error } = await supabase.auth.signUp({
           email: emailLimpo,
           password: senha,
@@ -110,145 +101,201 @@ export default function LoginScreen() {
 
   if (user) {
     return (
-      <View style={[estilos.centro, { backgroundColor: cor.fundo }]}>
-        <Text style={[estilos.titulo, { color: cor.texto }]}>Você já está logado</Text>
-        <Text style={{ color: cor.suave, marginBottom: 24 }}>{user.email}</Text>
-        <Pressable style={[estilos.botao, { backgroundColor: cor.destaque }]} onPress={voltar}>
-          <Text style={estilos.botaoTexto}>Voltar</Text>
-        </Pressable>
-        <Pressable style={estilos.link} onPress={() => sair().catch(() => setErro('Não foi possível sair.'))}>
-          <Text style={{ color: cor.suave }}>Sair da conta</Text>
-        </Pressable>
-      </View>
+      <SafeAreaView style={estilos.container}>
+        <View style={estilos.centro}>
+          <Text style={estilos.titulo}>Você já está logado 👋</Text>
+          <Text style={[estilos.subtitulo, estilos.textoCentro]}>{user.email}</Text>
+          {erro !== '' && <Text style={estilos.erro}>{erro}</Text>}
+
+          <Pressable style={[estilos.botaoPrimario, estilos.botaoLargo]} onPress={voltar}>
+            <Text style={estilos.botaoPrimarioTexto}>Voltar</Text>
+          </Pressable>
+          <Pressable
+            style={[estilos.botaoSecundario, estilos.botaoLargo]}
+            onPress={() => sair().catch(() => setErro('Não foi possível sair.'))}
+          >
+            <Text style={estilos.botaoSecundarioTexto}>Sair da conta</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const campo = [estilos.campo, { color: cor.texto, borderColor: cor.borda }];
+  const cadastrando = modo === 'cadastrar';
+
+  function trocarModo(novo: Modo) {
+    setModo(novo);
+    setErro('');
+    setAviso('');
+  }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: cor.fundo }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
-        <Pressable style={estilos.voltar} onPress={voltar}>
-          <Text style={{ color: cor.suave }}>‹ Voltar</Text>
-        </Pressable>
+    <SafeAreaView style={estilos.container}>
+      <KeyboardAvoidingView
+        style={estilos.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
+          <Pressable onPress={voltar}>
+            <Text style={estilos.voltar}>‹ Voltar</Text>
+          </Pressable>
 
-        <View style={estilos.abas}>
-          {(['entrar', 'cadastrar'] as const).map((m) => (
-            <Pressable
-              key={m}
-              style={[
-                estilos.aba,
-                { borderColor: cor.destaque, backgroundColor: modo === m ? cor.destaque : 'transparent' },
-              ]}
-              onPress={() => {
-                setModo(m);
-                setErro('');
-                setAviso('');
-              }}
-            >
-              <Text style={{ color: modo === m ? '#FFFFFF' : cor.destaque, fontWeight: '700' }}>
-                {m === 'entrar' ? 'Entrar' : 'Criar conta'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={[estilos.titulo, { color: cor.texto }]}>
-          {modo === 'entrar' ? 'Entrar' : 'Criar conta'}
-        </Text>
-        <Text style={{ color: cor.suave, marginBottom: 20 }}>
-          {modo === 'entrar'
-            ? 'Entre para fazer e acompanhar seus pedidos.'
-            : 'Cadastre-se para pedir. Usamos nome e telefone para a entrega.'}
-        </Text>
-
-        {modo === 'cadastrar' && (
-          <>
-            <TextInput
-              style={campo}
-              placeholder="Nome"
-              placeholderTextColor={cor.suave}
-              value={nome}
-              onChangeText={setNome}
-              autoCapitalize="words"
-            />
-            <TextInput
-              style={campo}
-              placeholder="Telefone com DDD"
-              placeholderTextColor={cor.suave}
-              value={telefone}
-              onChangeText={setTelefone}
-              keyboardType="phone-pad"
-            />
-          </>
-        )}
-
-        <TextInput
-          style={campo}
-          placeholder="E-mail"
-          placeholderTextColor={cor.suave}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <TextInput
-          style={campo}
-          placeholder="Senha"
-          placeholderTextColor={cor.suave}
-          value={senha}
-          onChangeText={setSenha}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        {erro !== '' && <Text style={estilos.erro}>{erro}</Text>}
-        {aviso !== '' && <Text style={estilos.aviso}>{aviso}</Text>}
-
-        <Pressable
-          style={[estilos.botao, { backgroundColor: cor.destaque, opacity: enviando ? 0.6 : 1 }]}
-          onPress={enviar}
-          disabled={enviando}
-        >
-          {enviando ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={estilos.botaoTexto}>{modo === 'entrar' ? 'Entrar' : 'Cadastrar'}</Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          style={estilos.link}
-          onPress={() => {
-            setModo(modo === 'entrar' ? 'cadastrar' : 'entrar');
-            setErro('');
-            setAviso('');
-          }}
-        >
-          <Text style={{ color: cor.destaque }}>
-            {modo === 'entrar' ? 'Não tenho conta. Cadastrar' : 'Já tenho conta. Entrar'}
+          <Text style={estilos.titulo}>{cadastrando ? 'Criar conta 🍕' : 'Entrar 🍕'}</Text>
+          <Text style={estilos.subtitulo}>
+            {cadastrando
+              ? 'Cadastre-se para pedir. Usamos nome e telefone para a entrega.'
+              : 'Entre para fazer e acompanhar seus pedidos.'}
           </Text>
-        </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <View style={estilos.abas}>
+            {(['entrar', 'cadastrar'] as const).map((m) => (
+              <Pressable
+                key={m}
+                style={[estilos.aba, modo === m && estilos.abaAtiva]}
+                onPress={() => trocarModo(m)}
+              >
+                <Text style={[estilos.abaTexto, modo === m && estilos.abaTextoAtiva]}>
+                  {m === 'entrar' ? 'Entrar' : 'Criar conta'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={estilos.cartao}>
+            {cadastrando && (
+              <>
+                <Text style={estilos.rotulo}>Nome *</Text>
+                <TextInput
+                  style={estilos.campo}
+                  placeholder="Digite seu nome"
+                  placeholderTextColor={Paleta.textoSuave}
+                  value={nome}
+                  onChangeText={setNome}
+                  autoCapitalize="words"
+                />
+
+                <Text style={estilos.rotulo}>Telefone *</Text>
+                <TextInput
+                  style={estilos.campo}
+                  placeholder="(83) 99999-9999"
+                  placeholderTextColor={Paleta.textoSuave}
+                  value={telefone}
+                  onChangeText={setTelefone}
+                  keyboardType="phone-pad"
+                />
+              </>
+            )}
+
+            <Text style={estilos.rotulo}>E-mail *</Text>
+            <TextInput
+              style={estilos.campo}
+              placeholder="voce@email.com"
+              placeholderTextColor={Paleta.textoSuave}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={estilos.rotulo}>Senha *</Text>
+            <TextInput
+              style={estilos.campo}
+              placeholder={cadastrando ? 'Pelo menos 6 caracteres' : 'Sua senha'}
+              placeholderTextColor={Paleta.textoSuave}
+              value={senha}
+              onChangeText={setSenha}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+
+            {erro !== '' && <Text style={estilos.erro}>{erro}</Text>}
+            {aviso !== '' && <Text style={estilos.aviso}>{aviso}</Text>}
+
+            <Pressable
+              style={[estilos.botaoPrimario, enviando && estilos.botaoDesabilitado]}
+              onPress={enviar}
+              disabled={enviando}
+            >
+              {enviando ? (
+                <ActivityIndicator color={Paleta.textoSobrePrimaria} />
+              ) : (
+                <Text style={estilos.botaoPrimarioTexto}>{cadastrando ? 'Cadastrar' : 'Entrar'}</Text>
+              )}
+            </Pressable>
+          </View>
+
+          <Pressable style={estilos.link} onPress={() => trocarModo(cadastrando ? 'entrar' : 'cadastrar')}>
+            <Text style={estilos.linkTexto}>
+              {cadastrando ? 'Já tenho conta. Entrar' : 'Não tenho conta. Cadastrar'}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const estilos = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Paleta.fundo },
+  conteudo: { flexGrow: 1, padding: 20, paddingBottom: 40 },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  conteudo: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  titulo: { fontSize: 26, fontWeight: '700', marginBottom: 6 },
-  campo: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, fontSize: 16 },
-  botao: { borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 8, minWidth: 160 },
-  botaoTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  voltar: { fontSize: 16, color: Paleta.primaria, fontWeight: '600', marginBottom: 18 },
+  titulo: { fontSize: 28, fontWeight: 'bold', color: Paleta.primaria, marginBottom: 6 },
+  subtitulo: { fontSize: 15, color: Paleta.textoSecundario, marginBottom: 20 },
+  textoCentro: { textAlign: 'center' },
+  abas: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  aba: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Paleta.primaria,
+  },
+  abaAtiva: { backgroundColor: Paleta.primaria },
+  abaTexto: { fontSize: 15, fontWeight: 'bold', color: Paleta.primaria },
+  abaTextoAtiva: { color: Paleta.textoSobrePrimaria },
+  cartao: {
+    padding: 18,
+    borderRadius: 16,
+    backgroundColor: Paleta.superficie,
+    borderWidth: 1,
+    borderColor: Paleta.borda,
+  },
+  rotulo: { fontSize: 14, fontWeight: '600', color: Paleta.texto, marginBottom: 6 },
+  campo: {
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Paleta.borda,
+    backgroundColor: Paleta.fundo,
+    fontSize: 15,
+    color: Paleta.texto,
+  },
+  erro: { fontSize: 14, color: Paleta.erro, marginBottom: 12 },
+  aviso: { fontSize: 14, color: Paleta.sucesso, marginBottom: 12 },
+  botaoPrimario: {
+    marginTop: 4,
+    padding: 15,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: Paleta.primaria,
+  },
+  botaoDesabilitado: { backgroundColor: Paleta.desabilitado },
+  botaoPrimarioTexto: { color: Paleta.textoSobrePrimaria, fontSize: 16, fontWeight: 'bold' },
+  botaoSecundario: {
+    marginTop: 12,
+    padding: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Paleta.primaria,
+  },
+  botaoSecundarioTexto: { color: Paleta.primaria, fontSize: 15, fontWeight: 'bold' },
+  botaoLargo: { alignSelf: 'stretch' },
   link: { alignItems: 'center', marginTop: 18, padding: 6 },
-  voltar: { alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 12 },
-  abas: { flexDirection: 'row', gap: 10, marginBottom: 18 },
-  aba: { flex: 1, borderWidth: 1.5, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
-  erro: { color: '#C0392B', marginBottom: 8 },
-  aviso: { color: '#1E8449', marginBottom: 8 },
+  linkTexto: { fontSize: 15, fontWeight: '600', color: Paleta.primaria },
 });
