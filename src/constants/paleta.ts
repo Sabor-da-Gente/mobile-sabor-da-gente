@@ -10,4 +10,6 @@ export const Paleta = {
   textoSuave: '#777777',
   desabilitado: '#C9B8A6',
   textoSobrePrimaria: '#FFFFFF',
+  erro: '#B42318',
+  sucesso: '#1E8449',
 } as const;
