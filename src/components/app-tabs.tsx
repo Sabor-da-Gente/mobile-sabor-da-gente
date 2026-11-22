@@ -1,23 +1,22 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
-
-import { Colors } from '@/constants/theme';
+import { Paleta } from '@/constants/paleta';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      backgroundColor={Paleta.superficie}
+      shadowColor={Paleta.borda}
+      tintColor={Paleta.primaria}
+      indicatorColor={Paleta.destaqueSuave}
+      rippleColor={Paleta.destaqueSuave}
+      iconColor={{ default: Paleta.textoSuave, selected: Paleta.primaria }}
+      labelStyle={{
+        default: { color: Paleta.textoSuave },
+        selected: { color: Paleta.primaria, fontWeight: 'bold' },
+      }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Início</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="perfil">
