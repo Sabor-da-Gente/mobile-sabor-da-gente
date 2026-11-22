@@ -173,7 +173,7 @@ Para cada cenário, siga os passos e compare com o **Resultado esperado**. Marqu
 - A outra conta não vê nada da anterior.
 - O login sem internet mostra "Sem internet. Entrar ou cadastrar exige conexão."
 
-- [ ] Passou  — Observações: pendente: executar após o merge do PR da #31
+- [x] Passou  — Observações:
 
 ---
 
