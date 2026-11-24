@@ -145,10 +145,6 @@ Erro de envio, com a opção de ver as pendências:
 
 ![Erro de envio](docs/prints/10-erro-envio.png)
 
-Pedido feito offline aparecendo no painel quando a conexão volta:
-
-![Pedido offline chegando ao painel](docs/prints/pedido-offline.gif)
-
 ## 🗃️ Estrutura
 
     src/app/                      telas (Expo Router), incluindo Pendências
