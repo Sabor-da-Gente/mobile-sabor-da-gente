@@ -141,10 +141,6 @@ Pedido feito offline com o selo "aguardando envio":
 
 ![Aguardando envio](docs/prints/09-aguardando-envio.png)
 
-Erro de envio, com a opção de ver as pendências:
-
-![Erro de envio](docs/prints/10-erro-envio.png)
-
 ## 🗃️ Estrutura
 
     src/app/                      telas (Expo Router), incluindo Pendências
